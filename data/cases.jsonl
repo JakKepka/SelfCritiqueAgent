@@ -1,12 +1,203 @@
-{"id": "C01", "title": "Niewykonanie umowy dostawy", "facts": "Sprzedawca zobowiązał się dostarczyć 100 jednostek towaru do 30.06.2024. Nie dostarczył w terminie, powołuje się na brak surowców. Kupujący poniósł stratę z powodu przestoju produkcji.", "question": "Czy roszczenie kupującego o odszkodowanie za niewykonanie umowy jest zasadne?", "label": "zasadne", "gold_paremie": ["P01","P08","P10"], "gold_explanation": "Umowa nie została wykonana (Pacta sunt servanda), możliwa odpowiedzialność z tytułu naruszenia obowiązków przed zawarciem (Culpa in contrahendo) oraz szkoda bezprawna (Damnum iniuria datum).", "tags": ["umowa","niewykonanie","odszkodowanie"]}
-{"id": "C02", "title": "Wada rzeczy sprzedanej (konsument)", "facts": "Konsument kupił lodówkę; po 2 tygodniach przestała działać. Sprzedawca oferuje naprawę, konsument żąda odstąpienia od umowy lub obniżenia ceny.", "question": "Czy konsument ma prawo odstąpić od umowy lub żądać obniżenia ceny?", "label": "zasadne", "gold_paremie": ["P01","P09","P08"], "gold_explanation": "Roszczenia wynikają z umowy i ustaw konsumenckich; podstawą roszczenia jest naruszenie obowiązku dostarczenia rzeczy wolnej od wad (Pacta sunt servanda, Actio non datur nisi in lege).", "tags": ["konsument","wada","umowa"]}
-{"id": "C03", "title": "Roszczenie o zwrot zaliczki po odstąpieniu", "facts": "Strony zawarły umowę przedwstępną z zaliczką. Kupujący odstępuje, sprzedawca żąda zatrzymania zaliczki jako kary umownej.", "question": "Czy sprzedawca może zatrzymać zaliczkę w całości?", "label": "nie_dazy", "gold_paremie": ["P01","P02","P07"], "gold_explanation": "Należy odnieść się do treści umowy oraz przepisów szczególnych; szczególne regulacje mogą ograniczać zatrzymanie zaliczki; także ocena dobrej wiary i estoppel może mieć znaczenie.", "tags": ["zaliczka","umowa","karna"]}
-{"id": "C04", "title": "Szkoda z tytułu niewłaściwego ogrodzenia działki", "facts": "Sąsiad postawił ogrodzenie na granicy, które uniemożliwia dojazd do części działki. Właściciel żąda przywrócenia stanu poprzedniego i odszkodowania.", "question": "Czy właściciel działki ma roszczenie o przywrócenie stanu i odszkodowanie?", "label": "zasadne", "gold_paremie": ["P10","P07","P09"], "gold_explanation": "Działanie powodujące szkodę bezprawnie (Damnum iniuria datum) i naruszenie zasad współżycia (Venire contra factum proprium).", "tags": ["nieruchomosc","sasiad","szkoda"]}
-{"id": "C05", "title": "Roszczenie wynikające z prawomocnego orzeczenia", "facts": "Strona A uzyskała prawomocne orzeczenie zasądzające zapłatę. Strona B domaga się ponownego rozpoznania sprawy z nowych powodów.", "question": "Czy można wznowić sprawę lub ponownie orzekać o tej samej kwestii?", "label": "nie_dazy", "gold_paremie": ["P06","P03","P02"], "gold_explanation": "Res iudicata — prawomocne orzeczenie ma skutek wiążący; ewentualne wyjątki zależne od szczególnych przesłanek (lex specialis/późniejsza).", "tags": ["prawomocnosc","proces","res_iudicata"]}
-{"id": "C06", "title": "Szkoda na drodze spowodowana przez kierowcę", "facts": "Kierowca najechał na tył innego pojazdu na skrzyżowaniu, uszkadzając pojazd i powodując obrażenia. Poszkodowany żąda odszkodowania.", "question": "Czy poszkodowany ma prawo do odszkodowania?", "label": "zasadne", "gold_paremie": ["P10","P09"], "gold_explanation": "Bezprawne wyrządzenie szkody i roszczenie odszkodowawcze (Damnum iniuria datum; podstawy roszczenia).", "tags": ["delikt","wypadek","odszkodowanie"]}
-{"id": "C07", "title": "Zarzut braku podstawy prawnej dla roszczenia", "facts": "Powód domaga się zapłaty za usługę, której wykonanie nie jest przewidziane żadną umową ani przepisem. Pozwany kwestionuje podstawę roszczenia.", "question": "Czy roszczenie powoda jest dopuszczalne?", "label": "niezasadne", "gold_paremie": ["P09"], "gold_explanation": "Brak podstawy prawnej dla roszczenia (Actio non datur nisi in lege).", "tags": ["roszczenia","podstawa_prawna"]}
-{"id": "C08", "title": "Spór o własność rzeczy ruchomej", "facts": "Osoba A twierdzi, że nabyła ruchomość przed osobą B i żąda zwrotu; B twierdzi, że nabyła wcześniej. Brakuje dokumentów, są sprzeczne zeznania świadków.", "question": "Kto ma prawo do rzeczy?", "label": "nie_dazy", "gold_paremie": ["P04","P06"], "gold_explanation": "Brak pewności dowodowej – wątpliwości mogą uniemożliwić rozstrzygnięcie; wpływ ma też status wcześniejszych orzeczeń (res iudicata).", "tags": ["wlasnosc","dowody","spory"]}
-{"id": "C09", "title": "Naruszenie zasad bezstronności w postępowaniu", "facts": "Sędzia prowadzący sprawę jest blisko związany z jedną ze stron; strona żąda wyłączenia sędziego.", "question": "Czy zachodzą podstawy do wyłączenia sędziego?", "label": "zasadne", "gold_paremie": ["P05"], "gold_explanation": "Nemo judex in causa sua – konieczne jest wyłączenie przy konflikcie interesów.", "tags": ["postepowanie","bezstronnosc"]}
-{"id": "C10", "title": "Roszczenie wobec sprzedawcy nierozpoznane w umowie", "facts": "Strony zawarły umowę, w której nie przewidziano kary za konkretny rodzaj naruszenia; poszkodowany żąda naprawienia szkody.", "question": "Czy brak kary umownej wyklucza roszczenie odszkodowawcze?", "label": "niezasadne", "gold_paremie": ["P01","P09"], "gold_explanation": "Brak umownej kary nie wyklucza roszczenia odszkodowawczego, jeśli istnieje podstawa prawna i szkoda (Actio non datur nisi in lege).", "tags": ["umowa","odszkodowanie"]}
-{"id": "C11", "title": "Roszczenie z tytułu wadliwego wykonania usługi przez wykonawcę", "facts": "Wykonawca wykonał instalację niezgodnie ze specyfikacją, klient poniósł koszty naprawy.", "question": "Czy klient ma prawo do odszkodowania i naprawienia szkody?", "label": "zasadne", "gold_paremie": ["P01","P10"], "gold_explanation": "Niewykonanie/ nienależyte wykonanie umowy i szkoda bezprawna; roszczenie o odszkodowanie uzasadnione.", "tags": ["umowa","nienalezyte_wykonanie","odszkodowanie"]}
-{"id": "C12", "title": "Wniosek o ponowne rozpatrzenie z powodu zmiany prawa", "facts": "Po wydaniu wyroku nastąpiła zmiana przepisów, która może mieć wpływ na rozstrzygnięcie. Strona wnosi o wznowienie lub ponowne rozpoznanie.", "question": "Czy zmiana prawa uzasadnia ponowne rozpoznanie sprawy?", "label": "nie_dazy", "gold_paremie": ["P03","P06"], "gold_explanation": "Zasadniczo prawomocne orzeczenie ma skutek wiążący, ale lex posterior może wpływać na wykładnię i wyjątkowe procedury rewizji.", "tags": ["zmiana_prawa","prawomocnosc"]}
+{
+	"id": "C01",
+	"title": "Niewykonanie umowy dostawy",
+	"facts": "Sprzedawca zobowiązał się dostarczyć 100 jednostek towaru do 30.06.2024. Nie dostarczył w terminie, powołuje się na brak surowców. Kupujący poniósł stratę z powodu przestoju produkcji.",
+	"question": "Czy roszczenie kupującego o odszkodowanie za niewykonanie umowy jest zasadne?",
+	"label": "zasadne",
+	"gold_paremie": [
+		"P01",
+		"P08",
+		"P10"
+	],
+	"gold_explanation": "Umowa nie została wykonana (Pacta sunt servanda), możliwa odpowiedzialność z tytułu naruszenia obowiązków przed zawarciem (Culpa in contrahendo) oraz szkoda bezprawna (Damnum iniuria datum).",
+	"tags": [
+		"umowa",
+		"niewykonanie",
+		"odszkodowanie"
+	]
+}
+{
+	"id": "C02",
+	"title": "Wada rzeczy sprzedanej (konsument)",
+	"facts": "Konsument kupił lodówkę; po 2 tygodniach przestała działać. Sprzedawca oferuje naprawę, konsument żąda odstąpienia od umowy lub obniżenia ceny.",
+	"question": "Czy konsument ma prawo odstąpić od umowy lub żądać obniżenia ceny?",
+	"label": "zasadne",
+	"gold_paremie": [
+		"P01",
+		"P09",
+		"P08"
+	],
+	"gold_explanation": "Roszczenia wynikają z umowy i ustaw konsumenckich; podstawą roszczenia jest naruszenie obowiązku dostarczenia rzeczy wolnej od wad (Pacta sunt servanda, Actio non datur nisi in lege).",
+	"tags": [
+		"konsument",
+		"wada",
+		"umowa"
+	]
+}
+{
+	"id": "C03",
+	"title": "Roszczenie o zwrot zaliczki po odstąpieniu",
+	"facts": "Strony zawarły umowę przedwstępną z zaliczką. Kupujący odstępuje, sprzedawca żąda zatrzymania zaliczki jako kary umownej.",
+	"question": "Czy sprzedawca może zatrzymać zaliczkę w całości?",
+	"label": "nie_dazy",
+	"gold_paremie": [
+		"P01",
+		"P02",
+		"P07"
+	],
+	"gold_explanation": "Należy odnieść się do treści umowy oraz przepisów szczególnych; szczególne regulacje mogą ograniczać zatrzymanie zaliczki; także ocena dobrej wiary i estoppel może mieć znaczenie.",
+	"tags": [
+		"zaliczka",
+		"umowa",
+		"karna"
+	]
+}
+{
+	"id": "C04",
+	"title": "Szkoda z tytułu niewłaściwego ogrodzenia działki",
+	"facts": "Sąsiad postawił ogrodzenie na granicy, które uniemożliwia dojazd do części działki. Właściciel żąda przywrócenia stanu poprzedniego i odszkodowania.",
+	"question": "Czy właściciel działki ma roszczenie o przywrócenie stanu i odszkodowanie?",
+	"label": "zasadne",
+	"gold_paremie": [
+		"P10",
+		"P07",
+		"P09"
+	],
+	"gold_explanation": "Działanie powodujące szkodę bezprawnie (Damnum iniuria datum) i naruszenie zasad współżycia (Venire contra factum proprium).",
+	"tags": [
+		"nieruchomosc",
+		"sasiad",
+		"szkoda"
+	]
+}
+{
+	"id": "C05",
+	"title": "Roszczenie wynikające z prawomocnego orzeczenia",
+	"facts": "Strona A uzyskała prawomocne orzeczenie zasądzające zapłatę. Strona B domaga się ponownego rozpoznania sprawy z nowych powodów.",
+	"question": "Czy można wznowić sprawę lub ponownie orzekać o tej samej kwestii?",
+	"label": "nie_dazy",
+	"gold_paremie": [
+		"P06",
+		"P03",
+		"P02"
+	],
+	"gold_explanation": "Res iudicata — prawomocne orzeczenie ma skutek wiążący; ewentualne wyjątki zależne od szczególnych przesłanek (lex specialis/późniejsza).",
+	"tags": [
+		"prawomocnosc",
+		"proces",
+		"res_iudicata"
+	]
+}
+{
+	"id": "C06",
+	"title": "Szkoda na drodze spowodowana przez kierowcę",
+	"facts": "Kierowca najechał na tył innego pojazdu na skrzyżowaniu, uszkadzając pojazd i powodując obrażenia. Poszkodowany żąda odszkodowania.",
+	"question": "Czy poszkodowany ma prawo do odszkodowania?",
+	"label": "zasadne",
+	"gold_paremie": [
+		"P10",
+		"P09"
+	],
+	"gold_explanation": "Bezprawne wyrządzenie szkody i roszczenie odszkodowawcze (Damnum iniuria datum; podstawy roszczenia).",
+	"tags": [
+		"delikt",
+		"wypadek",
+		"odszkodowanie"
+	]
+}
+{
+	"id": "C07",
+	"title": "Zarzut braku podstawy prawnej dla roszczenia",
+	"facts": "Powód domaga się zapłaty za usługę, której wykonanie nie jest przewidziane żadną umową ani przepisem. Pozwany kwestionuje podstawę roszczenia.",
+	"question": "Czy roszczenie powoda jest dopuszczalne?",
+	"label": "niezasadne",
+	"gold_paremie": [
+		"P09"
+	],
+	"gold_explanation": "Brak podstawy prawnej dla roszczenia (Actio non datur nisi in lege).",
+	"tags": [
+		"roszczenia",
+		"podstawa_prawna"
+	]
+}
+{
+	"id": "C08",
+	"title": "Spór o własność rzeczy ruchomej",
+	"facts": "Osoba A twierdzi, że nabyła ruchomość przed osobą B i żąda zwrotu; B twierdzi, że nabyła wcześniej. Brakuje dokumentów, są sprzeczne zeznania świadków.",
+	"question": "Kto ma prawo do rzeczy?",
+	"label": "nie_dazy",
+	"gold_paremie": [
+		"P04",
+		"P06"
+	],
+	"gold_explanation": "Brak pewności dowodowej – wątpliwości mogą uniemożliwić rozstrzygnięcie; wpływ ma też status wcześniejszych orzeczeń (res iudicata).",
+	"tags": [
+		"wlasnosc",
+		"dowody",
+		"spory"
+	]
+}
+{
+	"id": "C09",
+	"title": "Naruszenie zasad bezstronności w postępowaniu",
+	"facts": "Sędzia prowadzący sprawę jest blisko związany z jedną ze stron; strona żąda wyłączenia sędziego.",
+	"question": "Czy zachodzą podstawy do wyłączenia sędziego?",
+	"label": "zasadne",
+	"gold_paremie": [
+		"P05"
+	],
+	"gold_explanation": "Nemo judex in causa sua – konieczne jest wyłączenie przy konflikcie interesów.",
+	"tags": [
+		"postepowanie",
+		"bezstronnosc"
+	]
+}
+{
+	"id": "C10",
+	"title": "Roszczenie wobec sprzedawcy nierozpoznane w umowie",
+	"facts": "Strony zawarły umowę, w której nie przewidziano kary za konkretny rodzaj naruszenia; poszkodowany żąda naprawienia szkody.",
+	"question": "Czy brak kary umownej wyklucza roszczenie odszkodowawcze?",
+	"label": "niezasadne",
+	"gold_paremie": [
+		"P01",
+		"P09"
+	],
+	"gold_explanation": "Brak umownej kary nie wyklucza roszczenia odszkodowawczego, jeśli istnieje podstawa prawna i szkoda (Actio non datur nisi in lege).",
+	"tags": [
+		"umowa",
+		"odszkodowanie"
+	]
+}
+{
+	"id": "C11",
+	"title": "Roszczenie z tytułu wadliwego wykonania usługi przez wykonawcę",
+	"facts": "Wykonawca wykonał instalację niezgodnie ze specyfikacją, klient poniósł koszty naprawy.",
+	"question": "Czy klient ma prawo do odszkodowania i naprawienia szkody?",
+	"label": "zasadne",
+	"gold_paremie": [
+		"P01",
+		"P10"
+	],
+	"gold_explanation": "Niewykonanie/ nienależyte wykonanie umowy i szkoda bezprawna; roszczenie o odszkodowanie uzasadnione.",
+	"tags": [
+		"umowa",
+		"nienalezyte_wykonanie",
+		"odszkodowanie"
+	]
+}
+{
+	"id": "C12",
+	"title": "Wniosek o ponowne rozpatrzenie z powodu zmiany prawa",
+	"facts": "Po wydaniu wyroku nastąpiła zmiana przepisów, która może mieć wpływ na rozstrzygnięcie. Strona wnosi o wznowienie lub ponowne rozpoznanie.",
+	"question": "Czy zmiana prawa uzasadnia ponowne rozpoznanie sprawy?",
+	"label": "nie_dazy",
+	"gold_paremie": [
+		"P03",
+		"P06"
+	],
+	"gold_explanation": "Zasadniczo prawomocne orzeczenie ma skutek wiążący, ale lex posterior może wpływać na wykładnię i wyjątkowe procedury rewizji.",
+	"tags": [
+		"zmiana_prawa",
+		"prawomocnosc"
+	]
+}

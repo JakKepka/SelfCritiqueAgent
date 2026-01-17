@@ -43,14 +43,63 @@ CASES_FILE = DATA_DIR / "cases.jsonl"
 
 
 def load_jsonl(path: Path) -> List[Dict]:
+    txt = path.read_text(encoding="utf-8")
+    # try fast path: line-delimited JSON objects
     items = []
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            items.append(json.loads(line))
-    return items
+    lines = [l for l in txt.splitlines() if l.strip()]
+    ok = True
+    for ln in lines:
+        try:
+            items.append(json.loads(ln))
+        except Exception:
+            ok = False
+            break
+    if ok and items:
+        return items
+    # fallback: extract all balanced JSON objects from the file
+    return _extract_all_json_objects(txt)
+
+
+def _extract_all_json_objects(text: str) -> List[Dict]:
+    objs: List[Dict] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        # find next { or [
+        j = None
+        for k in range(i, n):
+            if text[k] in '{[':
+                j = k
+                break
+        if j is None:
+            break
+        start_char = text[j]
+        stack = []
+        end = None
+        for k in range(j, n):
+            ch = text[k]
+            if ch == '{' or ch == '[':
+                stack.append(ch)
+            elif ch == '}' and stack and stack[-1] == '{':
+                stack.pop()
+                if not stack:
+                    end = k + 1
+                    break
+            elif ch == ']' and stack and stack[-1] == '[':
+                stack.pop()
+                if not stack:
+                    end = k + 1
+                    break
+        if end is None:
+            break
+        candidate = text[j:end]
+        try:
+            obj = json.loads(candidate)
+            objs.append(obj)
+        except Exception:
+            pass
+        i = end
+    return objs
 
 
 def tag_score(paremia: Dict, case_tags: List[str]) -> int:
@@ -78,7 +127,22 @@ def load_yaml_template(path: Path) -> Dict:
 def format_paremie_text(paremie_list: List[Dict]) -> str:
     parts = []
     for p in paremie_list:
-        parts.append(f"{p['id']}: {p['polish']} — {p['meaning']}")
+        pid = p.get('id') or p.get('code') or p.get('key') or 'UNKNOWN'
+        head = p.get('polish') or p.get('text') or p.get('title') or p.get('label') or ''
+        body = p.get('meaning') or p.get('explanation') or p.get('description') or ''
+        if not head and body:
+            head = (body[:120] + '...') if len(body) > 120 else body
+            body = ''
+        if not head and not body:
+            # fallback to compact JSON representation
+            try:
+                head = json.dumps(p, ensure_ascii=False)
+            except Exception:
+                head = str(p)
+        if body:
+            parts.append(f"{pid}: {head} — {body}")
+        else:
+            parts.append(f"{pid}: {head}")
     return "\n".join(parts)
 
 
@@ -164,9 +228,13 @@ def parse_agent1_output(text: str) -> Dict:
                 used = re.split(r"[,;\s]+", used.strip())
             out["used_paremie"] = [u.strip().upper() for u in used if u]
             out["assumptions"] = data.get("Założenia") or data.get("assumptions") or []
-            return out
+            # do not return yet: if some fields (e.g. uzasadnienie) are missing
+            # try to extract them from the free-text body below
+            json_parsed = True
         except Exception:
-            pass
+            json_parsed = False
+    else:
+        json_parsed = False
 
     lines = [l.strip() for l in text.splitlines() if l.strip()]
     for i, line in enumerate(lines):
@@ -190,6 +258,22 @@ def parse_agent1_output(text: str) -> Dict:
                 asum.append(lines[j])
                 j += 1
             out["assumptions"] = asum
+        # extract numbered justification block if missing
+        if (not out.get("uzasadnienie")) and re.match(r"^Uzasadnienie[:\s]*$", line, flags=re.I):
+            j = i+1
+            just = []
+            while j < len(lines) and (re.match(r"^\d+\.|^-\s", lines[j]) or lines[j]):
+                # stop on next section header
+                if re.match(r"^(Paremie użyte|Paremie:|Założenia|Decyzja)", lines[j], flags=re.I):
+                    break
+                # strip numbering
+                cleaned = re.sub(r"^\d+\.?\s*", "", lines[j]).strip()
+                if cleaned:
+                    just.append(cleaned)
+                j += 1
+            if just:
+                out["uzasadnienie"] = just
+                # continue parsing in case other fields are present
     return out
 
 
