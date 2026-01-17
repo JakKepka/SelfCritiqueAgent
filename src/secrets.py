@@ -19,4 +19,6 @@ else:
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_API_URL = os.getenv("GEMINI_API_URL")
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+# https://aistudio.google.com/app/usage?timeRange=last-28-days&tab=rate-limit&project=gen-lang-client-0841350474
+
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemma-3-12b")

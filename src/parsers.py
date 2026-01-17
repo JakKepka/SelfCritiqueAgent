@@ -144,3 +144,72 @@ def compare_agent1_with_gold(case: Dict, parsed: Dict) -> Dict:
     precision = len(tp) / len(pred) if pred else 0.0
     recall = len(tp) / len(gold) if gold else 0.0
     return {"decision_match": decision_match, "pred_decision": pred_decision, "gold_decision": gold_decision, "precision": precision, "recall": recall, "tp": list(tp), "pred": list(pred), "gold": list(gold)}
+
+
+def _apply_agent2_corrections_to_pred(predicted: set, agent2_parsed: Dict) -> set:
+    """Infer corrected set of predicted paremies after Agent2 feedback.
+
+    Heuristics:
+    - If agent2_parsed contains 'recommended_paremie' use it as the corrected set.
+    - Otherwise, scan 'errors' messages for mentions of P\d{2}:
+      - messages under key containing 'pomini' => add those PIDs to predicted
+      - messages under key containing 'dob' or mentioning 'nadmiar' => remove those PIDs from predicted
+    - Fallback: return original predicted set.
+    """
+    corrected = set(predicted)
+    # explicit recommendation
+    rec = agent2_parsed.get("recommended_paremie") or agent2_parsed.get("recommended")
+    if isinstance(rec, (list, set)) and rec:
+        return set([r.strip().upper() for r in rec if r])
+
+    # scan errors
+    errors = agent2_parsed.get("errors", [])
+    for e in errors:
+        # e may be dicts like {"pominięcie": "Brakuje P02"} or strings
+        if isinstance(e, dict):
+            for k, msg in e.items():
+                found = re.findall(r"P\d{2}", str(msg))
+                if not found:
+                    continue
+                key = k.lower()
+                if "pomi" in key:
+                    corrected.update([f.upper() for f in found])
+                elif "dob" in key or "nadmi" in str(msg).lower():
+                    corrected.difference_update([f.upper() for f in found])
+        else:
+            msg = str(e)
+            found = re.findall(r"P\d{2}", msg)
+            if not found:
+                continue
+            if re.search(r"pomini|brakuje", msg, flags=re.I):
+                corrected.update([f.upper() for f in found])
+            elif re.search(r"nadmiar|niepotrzeb|błędn", msg, flags=re.I):
+                corrected.difference_update([f.upper() for f in found])
+    return corrected
+
+
+def compare_agent2_with_gold(case: Dict, agent1_parsed: Dict, agent2_parsed: Dict) -> Dict:
+    """Compute metrics after applying Agent2's suggested corrections to Agent1's predictions.
+
+    Returns metrics similar to compare_agent1_with_gold plus the corrected predicted set
+    and a list of modifications inferred.
+    """
+    gold = set(case.get("gold_paremie", [])) if case.get("gold_paremie") else set()
+    pred = set([p.upper() for p in agent1_parsed.get("used_paremie", [])])
+    corrected = _apply_agent2_corrections_to_pred(pred, agent2_parsed)
+    tp = corrected & gold
+    precision = len(tp) / len(corrected) if corrected else 0.0
+    recall = len(tp) / len(gold) if gold else 0.0
+    modifications = {
+        "added": sorted(list(corrected - pred)),
+        "removed": sorted(list(pred - corrected)),
+    }
+    return {
+        "pred_before": sorted(list(pred)),
+        "pred_after": sorted(list(corrected)),
+        "precision": precision,
+        "recall": recall,
+        "tp": sorted(list(tp)),
+        "gold": sorted(list(gold)),
+        "modifications": modifications,
+    }

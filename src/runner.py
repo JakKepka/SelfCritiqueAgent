@@ -17,8 +17,9 @@ import logging
 from google import genai
 from utils import load_jsonl as utils_load_jsonl, format_paremie_text as utils_format_paremie_text, retrieve_top_k as utils_retrieve_top_k
 from llm import call_gemini_genai as llm_call_gemini_genai
-from parsers import parse_agent1_output as parsers_parse_agent1_output, parse_agent2_output as parsers_parse_agent2_output, compare_agent1_with_gold as parsers_compare_agent1_with_gold
+from parsers import parse_agent1_output as parsers_parse_agent1_output, parse_agent2_output as parsers_parse_agent2_output, compare_agent1_with_gold as parsers_compare_agent1_with_gold, compare_agent2_with_gold as parsers_compare_agent2_with_gold
 from storage import save_case_results as storage_save_case_results
+
 
 try:
     import requests
@@ -36,6 +37,7 @@ logger = logging.getLogger("selfcritique")
 # load project secrets from src/secrets.py (to avoid colliding with stdlib `secrets`)
 def _load_project_secrets():
     spec_path = Path(__file__).resolve().parent / "secrets.py"
+    print("Loading project secrets from:", spec_path)
     if not spec_path.exists():
         return None
     spec = importlib.util.spec_from_file_location("project_secrets", str(spec_path))
@@ -179,8 +181,18 @@ def save_case_results(case_id: str, data: Dict):
     if "metrics" in data:
         meta = data["metrics"].copy()
         meta.setdefault("saved_at", datetime.utcnow().isoformat() + "Z")
-        with open(case_dir / "metrics.json", "w", encoding="utf-8") as f:
+        with open(case_dir / "metrics_agent1.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
+    # save agent2 post-correction metrics if present
+    if "metrics_agent2" in data:
+        try:
+            ma2 = data["metrics_agent2"].copy()
+        except Exception:
+            ma2 = data["metrics_agent2"]
+        if isinstance(ma2, dict):
+            ma2.setdefault("saved_at", datetime.utcnow().isoformat() + "Z")
+        with open(case_dir / "metrics_agent2.json", "w", encoding="utf-8") as f:
+            json.dump(ma2, f, ensure_ascii=False, indent=2)
 
 
 def run_case_llm(case_id: str):
@@ -216,8 +228,8 @@ def run_case_llm(case_id: str):
     logger.info("Used paremie: %s", parsed_a1.get('used_paremie'))
     logger.info("Assumptions: %s", parsed_a1.get('assumptions'))
 
-    # compare with gold
-    metrics = compare_agent1_with_gold(case, parsed_a1)
+    # compare with gold (Agent1)
+    metrics = parsers_compare_agent1_with_gold(case, parsed_a1)
     logger.info("-- Automatic evaluation (Agent1 vs gold) --")
     logger.info("Decision match: %s (pred=%s, gold=%s)", metrics['decision_match'], metrics['pred_decision'], metrics['gold_decision'])
     logger.info("Paremie precision: %.2f, recall: %.2f", metrics['precision'], metrics['recall'])
@@ -279,15 +291,26 @@ def run_case_llm(case_id: str):
             logger.info('Rubric: %s', parsed_a2.get('rubric'))
             logger.info('Errors: %s', parsed_a2.get('errors'))
 
+    # compute Agent2-effect metrics (inferred corrections)
+    metrics_agent2 = parsers_compare_agent2_with_gold(case, parsed_a1, parsed_a2)
+
     # finalize and save per-case results
     a1_raw_final = a1_raw2 if ('a1_raw2' in locals() and a1_raw2) else a1_raw
     a2_raw_final = a2_raw2 if ('a2_raw2' in locals() and a2_raw2) else a2_raw
+    # enrich parsed Agent2 with recommended paremies inferred from post-correction metrics
+    try:
+        parsed_a2_enriched = dict(parsed_a2) if isinstance(parsed_a2, dict) else {"raw": parsed_a2}
+        parsed_a2_enriched.setdefault("recommended_paremie", metrics_agent2.get("pred_after", []))
+    except Exception:
+        parsed_a2_enriched = parsed_a2
+
     results_payload = {
         "agent1_raw": a1_raw_final,
         "agent1_parsed": parsed_a1,
         "agent2_raw": a2_raw_final,
-        "agent2_parsed": parsed_a2,
+        "agent2_parsed": parsed_a2_enriched,
         "metrics": metrics,
+        "metrics_agent2": metrics_agent2,
     }
     try:
         save_case_results(case_id, results_payload)
@@ -383,13 +406,21 @@ def run_case(case_id: str):
     logger.info("%s", a2['suggested_fix'])
     # save naive-run results as well
     try:
-        metrics = compare_agent1_with_gold(case, {"decision": a1.get("decision"), "used_paremie": a1.get("used_paremie")})
+        metrics = parsers_compare_agent1_with_gold(case, {"decision": a1.get("decision"), "used_paremie": a1.get("used_paremie")})
+        metrics_agent2 = parsers_compare_agent2_with_gold(case, {"decision": a1.get("decision"), "used_paremie": a1.get("used_paremie")}, a2)
+        try:
+            a2_enriched = dict(a2) if isinstance(a2, dict) else {"raw": a2}
+            a2_enriched.setdefault("recommended_paremie", metrics_agent2.get("pred_after", []))
+        except Exception:
+            a2_enriched = a2
+
         payload = {
             "agent1_raw": None,
             "agent1_parsed": a1,
             "agent2_raw": None,
-            "agent2_parsed": a2,
+            "agent2_parsed": a2_enriched,
             "metrics": metrics,
+            "metrics_agent2": metrics_agent2,
         }
         save_case_results(case["id"], payload)
         logger.info("Saved results to results/%s/", case['id'])
