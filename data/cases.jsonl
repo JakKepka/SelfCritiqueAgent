@@ -39,7 +39,7 @@
 	"title": "Roszczenie o zwrot zaliczki po odstąpieniu",
 	"facts": "Strony zawarły umowę przedwstępną z zaliczką. Kupujący odstępuje, sprzedawca żąda zatrzymania zaliczki jako kary umownej.",
 	"question": "Czy sprzedawca może zatrzymać zaliczkę w całości?",
-	"label": "nie_dazy",
+	"label": "niejednoznaczne",
 	"gold_paremie": [
 		"P01",
 		"P02",
@@ -75,7 +75,7 @@
 	"title": "Roszczenie wynikające z prawomocnego orzeczenia",
 	"facts": "Strona A uzyskała prawomocne orzeczenie zasądzające zapłatę. Strona B domaga się ponownego rozpoznania sprawy z nowych powodów.",
 	"question": "Czy można wznowić sprawę lub ponownie orzekać o tej samej kwestii?",
-	"label": "nie_dazy",
+	"label": "niejednoznaczne",
 	"gold_paremie": [
 		"P06",
 		"P03",
@@ -125,7 +125,7 @@
 	"title": "Spór o własność rzeczy ruchomej",
 	"facts": "Osoba A twierdzi, że nabyła ruchomość przed osobą B i żąda zwrotu; B twierdzi, że nabyła wcześniej. Brakuje dokumentów, są sprzeczne zeznania świadków.",
 	"question": "Kto ma prawo do rzeczy?",
-	"label": "nie_dazy",
+	"label": "niejednoznaczne",
 	"gold_paremie": [
 		"P04",
 		"P06"
@@ -190,7 +190,7 @@
 	"title": "Wniosek o ponowne rozpatrzenie z powodu zmiany prawa",
 	"facts": "Po wydaniu wyroku nastąpiła zmiana przepisów, która może mieć wpływ na rozstrzygnięcie. Strona wnosi o wznowienie lub ponowne rozpoznanie.",
 	"question": "Czy zmiana prawa uzasadnia ponowne rozpoznanie sprawy?",
-	"label": "nie_dazy",
+	"label": "niejednoznaczne",
 	"gold_paremie": [
 		"P03",
 		"P06"

@@ -9,13 +9,18 @@ prompt: |
 
   Zasady:
   - Odpowiadaj po polsku.
-  - Udziel jednej decyzji: jedna z etykiet ["zasadne", "niezasadne", "nie_dazy"].
+  - Udziel jednej decyzji: jedna z etykiet ["zasadne", "niezasadne", "niejednoznaczne"].
   - Podaj 3–5 punktów uzasadnienia (krótkie akapity/punkty), każdy odwołujący się do konkretnej paremii.
   - Wypisz listę paremii wykorzystanych (id + krótka 1-zdaniowa subsumpcja: jak reguła działa w stanie faktycznym).
   - Wypisz założenia/niepewności (jeśli brakuje faktów).
 
+  Etykiety (krótkie opisy):
+  - zasadne: na podstawie dostępnych faktów reguła ma zastosowanie i prowadzi do rozstrzygnięcia.
+  - niezasadne: na podstawie dostępnych faktów reguła nie ma zastosowania.
+  - niejednoznaczne: brak wystarczających przesłanek lub sprzeczność dowodów — nie można jednoznacznie rozstrzygnąć.
+
   Format odpowiedzi (wyłącznie):
-  Decyzja: <zasadne|niezasadne|nie_dazy>
+  Decyzja: <zasadne|niezasadne|niejednoznaczne>
 
   Uzasadnienie:
   1. ...
@@ -32,13 +37,18 @@ prompt: |
 
     Zasady:
     - Odpowiadaj po polsku.
-    - Udziel jednej decyzji: jedna z etykiet ["zasadne", "niezasadne", "nie_dazy"].
+    - Udziel jednej decyzji: jedna z etykiet ["zasadne", "niezasadne", "niejednoznaczne"].
     - Podaj 3–5 punktów uzasadnienia (krótkie akapity/punkty), każdy odwołujący się do konkretnej paremii.
     - Wypisz listę paremii wykorzystanych (id + krótka 1-zdaniowa subsumpcja: jak reguła działa w stanie faktycznym).
     - Wypisz założenia/niepewności (jeśli brakuje faktów).
 
+    Etykiety (krótkie opisy):
+    - zasadne: na podstawie dostępnych faktów reguła ma zastosowanie i prowadzi do rozstrzygnięcia.
+    - niezasadne: na podstawie dostępnych faktów reguła nie ma zastosowania.
+    - niejednoznaczne: brak wystarczających przesłanek lub sprzeczność dowodów — nie można jednoznacznie rozstrzygnąć.
+
     Format odpowiedzi (wyłącznie):
-    Decyzja: <zasadne|niezasadne|nie_dazy>
+    Decyzja: <zasadne|niezasadne|niejednoznaczne>
 
     Uzasadnienie:
     1. ...

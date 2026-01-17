@@ -19,6 +19,10 @@ prompt: |
   Podaj też listę błędów, każdy opisany jednym zdaniem: (rodzaj_błędu): krótkie wyjaśnienie.
 
   Na końcu zaproponuj poprawioną, krótszą wersję odpowiedzi (opcjonalnie) lub wskazówki jak poprawić.
+  Etykiety (krótkie opisy):
+  - zasadne: Agenta1 trafnie wskazał reguły i wynik jest uzasadniony.
+  - niezasadne: Agenta1 wskazał, że reguła nie ma zastosowania.
+  - niejednoznaczne: ocena wskazuje, że nie ma wystarczających danych do rozstrzygnięcia.
 
   Format odpowiedzi (wyłącznie):
   Rubryka:
@@ -44,7 +48,8 @@ prompt: |
   {
     "Rubryka": {"Dobór paremii": 4, "Interpretacja paremii": 4, "Aplikacja": 3, "Pominięcia": 2, "Nadmierna pewność": 3},
     "Lista błędów": [{"pominięcie": "Brakuje P02"}],
-    "Proponowana poprawka": "Sugeruję dodać P02 i uściślić założenia."
+    "Proponowana poprawka": "Sugeruję dodać P02 i uściślić założenia.",
+    "Uzasadnienie_sadowe": ["Punkt 1: ...", "Punkt 2: ..."]
   }
 
   Fakty sprawy:
@@ -55,6 +60,11 @@ prompt: |
 
   Lista paremii:
   {paremie}
+
+  Dodatkowo, na podstawie faktów sprawy oraz wyników oceny krytycznej przygotuj zwięzłe uzasadnienie orzeczenia
+  w stylu sądowym. Nie odnoś się do Agenta1 ani do uwag krytyka wprost — przedstaw finalne uzasadnienie merytoryczne,
+  które mogłoby być częścią uzasadnienia sądowego. Dołącz to uzasadnienie jako pole JSON `Uzasadnienie_sadowe` — listę
+  krótkich akapitów/punktów.
 
   Wygeneruj teraz ocenę (tylko JSON).
 

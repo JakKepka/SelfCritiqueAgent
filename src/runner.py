@@ -301,6 +301,57 @@ def run_case_llm(case_id: str):
     try:
         parsed_a2_enriched = dict(parsed_a2) if isinstance(parsed_a2, dict) else {"raw": parsed_a2}
         parsed_a2_enriched.setdefault("recommended_paremie", metrics_agent2.get("pred_after", []))
+        # ensure Agent2 file contains a decision field (agreeing or overriding Agent1)
+        parsed_a2_enriched.setdefault("decision", parsed_a1.get("decision"))
+
+        # generate court-style corrected justification: prefer a dedicated LLM rewrite when available
+        uzpop = None
+        try:
+            # Use rewrite prompt from template if available, else build inline
+            tpl_rewrite = tpl2.get("rewrite_prompt") if isinstance(tpl2, dict) else None
+            if tpl_rewrite:
+                rewrite_prompt = tpl_rewrite.replace("{case_facts}", case.get('facts', '')).replace("{paremie}", format_paremie_text(paremie)).replace("{agent2_parsed}", json.dumps(parsed_a2, ensure_ascii=False, indent=2)).replace("{pred_after}", ", ".join(metrics_agent2.get('pred_after', [])))
+            else:
+                # Build a concise prompt for rewriting into court-style justification
+                rewrite_prompt = (
+                    "Na podstawie faktów sprawy oraz oceny krytycznej przygotuj zwięzłe uzasadnienie orzeczenia\n"
+                    "w stylu sądowym. Nie odnosić się do Agenta1 ani do uwag krytyka wprost, tylko zaprezentować finalne "
+                    "uzasadnienie merytoryczne.\n\nFakty:\n" + case.get('facts', '') + "\n\n"
+                    "Lista paremii (id: opis):\n" + format_paremie_text(paremie) + "\n\n"
+                    "Ocena krytyczna (zestaw danych):\n" + json.dumps(parsed_a2, ensure_ascii=False, indent=2) + "\n\n"
+                    "Użyj w uzasadnieniu przede wszystkim reguł: " + ", ".join(metrics_agent2.get('pred_after', [])) + ".\n"
+                    "Wygeneruj odpowiedź jako listę punktów (krótkie akapity) i zwróć jedynie poprawny JSON: [\"string1\", ...]."
+                )
+            llm_resp = call_gemini_genai(rewrite_prompt)
+            if llm_resp:
+                # try parse JSON array
+                try:
+                    candidate = llm_resp.strip()
+                    if candidate.startswith('['):
+                        uzpop = json.loads(candidate)
+                    else:
+                        # try to extract lines starting with numbers or bullets
+                        lines = [re.sub(r"^\s*\d+\.|^[-\*]\s*", "", l).strip() for l in llm_resp.splitlines() if l.strip()]
+                        uzpop = [l for l in lines if l]
+                except Exception:
+                    # fallback: split by blank lines
+                    parts = [p.strip() for p in llm_resp.split('\n\n') if p.strip()]
+                    uzpop = parts if parts else [llm_resp.strip()]
+        except Exception:
+            uzpop = None
+
+        if uzpop:
+            parsed_a2_enriched.setdefault("uzasadnienie_poprawione", uzpop)
+        else:
+            # fallback: use suggested_fix or agent1 uzasadnienie
+            try:
+                sf = parsed_a2.get("suggested_fix") if isinstance(parsed_a2, dict) else None
+                if sf:
+                    parsed_a2_enriched.setdefault("uzasadnienie_poprawione", [sf] if not isinstance(sf, list) else sf)
+                else:
+                    parsed_a2_enriched.setdefault("uzasadnienie_poprawione", parsed_a1.get("uzasadnienie", []))
+            except Exception:
+                parsed_a2_enriched.setdefault("uzasadnienie_poprawione", parsed_a1.get("uzasadnienie", []))
     except Exception:
         parsed_a2_enriched = parsed_a2
 
@@ -411,6 +462,16 @@ def run_case(case_id: str):
         try:
             a2_enriched = dict(a2) if isinstance(a2, dict) else {"raw": a2}
             a2_enriched.setdefault("recommended_paremie", metrics_agent2.get("pred_after", []))
+            a2_enriched.setdefault("decision", a1.get("decision"))
+            # corrected justification for naive run
+            try:
+                sf = a2.get("suggested_fix") if isinstance(a2, dict) else None
+                if sf:
+                    a2_enriched.setdefault("uzasadnienie_poprawione", [sf] if not isinstance(sf, list) else sf)
+                else:
+                    a2_enriched.setdefault("uzasadnienie_poprawione", a1.get("uzasadnienie", []))
+            except Exception:
+                a2_enriched.setdefault("uzasadnienie_poprawione", a1.get("uzasadnienie", []))
         except Exception:
             a2_enriched = a2
 
