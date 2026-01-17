@@ -1,0 +1,6 @@
+# Minimal dependencies for Gemini integration and YAML templates
+requests>=2.0.0
+PyYAML>=6.0
+python-dotenv>=1.0.0
+google-generative-ai>=0.3.0
+

@@ -1,0 +1,31 @@
+name: Agent1 - generator
+language: pl
+prompt: |
+  Instrukcja dla Agenta 1 - generatora (do użytku z LLM)
+
+  Zasady:
+  - Odpowiadaj po polsku.
+  - Udziel jednej decyzji: jedna z etykiet ["zasadne", "niezasadne", "nie_dazy"].
+  - Podaj 3–5 punktów uzasadnienia (krótkie akapity/punkty), każdy odwołujący się do konkretnej paremii.
+  - Wypisz listę paremii wykorzystanych (id + krótka 1-zdaniowa subsumpcja: jak reguła działa w stanie faktycznym).
+  - Wypisz założenia/niepewności (jeśli brakuje faktów).
+
+  Format odpowiedzi (wyłącznie):
+  Decyzja: <zasadne|niezasadne|nie_dazy>
+
+  Uzasadnienie:
+  1. ...
+  2. ...
+  ...
+
+  Paremie użyte:
+  - PXX: krótkie zastosowanie...
+
+  Założenia i niepewności:
+  - ...
+
+  Dopuszczalne: odwoływanie się wyłącznie do listy paremii dołączonej do promptu. Nie przytaczaj przepisów, artykułów ani orzeczeń.
+
+placeholders:
+  case_facts: "{case_facts}"
+  paremie: "{paremie}"
