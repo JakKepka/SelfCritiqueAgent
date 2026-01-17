@@ -34,6 +34,26 @@ prompt: |
   Proponowana poprawka / wskazówki:
   - ...
 
+  WAŻNE: Nie odpowiadaj "Rozumiem" ani nie proś o dodatkowe informacje. Od razu wygeneruj ocenę w formacie JSON opisanym poniżej.
+
+  Przykład oczekiwanego JSON:
+  {
+    "Rubryka": {"Dobór paremii": 4, "Interpretacja paremii": 4, "Aplikacja": 3, "Pominięcia": 2, "Nadmierna pewność": 3},
+    "Lista błędów": [{"pominięcie": "Brakuje P02"}],
+    "Proponowana poprawka": "Sugeruję dodać P02 i uściślić założenia."
+  }
+
+  Fakty sprawy:
+  {case_facts}
+
+  Odpowiedź Agenta 1:
+  {agent1_response}
+
+  Lista paremii:
+  {paremie}
+
+  Wygeneruj teraz ocenę (tylko JSON).
+
 placeholders:
   case_facts: "{case_facts}"
   agent1_response: "{agent1_response}"

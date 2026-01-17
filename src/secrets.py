@@ -18,3 +18,5 @@ else:
 # Expose expected variables
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_API_URL = os.getenv("GEMINI_API_URL")
+
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")

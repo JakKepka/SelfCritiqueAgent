@@ -18,14 +18,46 @@ prompt: |
   2. ...
   ...
 
-  Paremie użyte:
-  - PXX: krótkie zastosowanie...
+  prompt: |
+    Instrukcja dla Agenta 1 - generatora (do użytku z LLM)
 
-  Założenia i niepewności:
-  - ...
+    Zasady:
+    - Odpowiadaj po polsku.
+    - Udziel jednej decyzji: jedna z etykiet ["zasadne", "niezasadne", "nie_dazy"].
+    - Podaj 3–5 punktów uzasadnienia (krótkie akapity/punkty), każdy odwołujący się do konkretnej paremii.
+    - Wypisz listę paremii wykorzystanych (id + krótka 1-zdaniowa subsumpcja: jak reguła działa w stanie faktycznym).
+    - Wypisz założenia/niepewności (jeśli brakuje faktów).
 
-  Dopuszczalne: odwoływanie się wyłącznie do listy paremii dołączonej do promptu. Nie przytaczaj przepisów, artykułów ani orzeczeń.
+    Format odpowiedzi (wyłącznie):
+    Decyzja: <zasadne|niezasadne|nie_dazy>
 
-placeholders:
-  case_facts: "{case_facts}"
-  paremie: "{paremie}"
+    Uzasadnienie:
+    1. ...
+    2. ...
+    ...
+
+    Paremie użyte:
+    - PXX: krótkie zastosowanie...
+
+    Założenia i niepewności:
+    - ...
+
+    Dopuszczalne: odwoływanie się wyłącznie do listy paremii dołączonej do promptu. Nie przytaczaj przepisów, artykułów ani orzeczeń.
+
+    WAŻNE: Nie odpowiadaj "Zrozumiałem" ani nie proś o dodatkowe informacje. Od razu wygeneruj odpowiedź w żądanym formacie.
+
+    Przykład oczekiwanego JSON (wyjście musi być poprawnym JSON lub dokładnie w formacie opisanym wyżej):
+    {
+      "Decyzja": "zasadne",
+      "Uzasadnienie": ["punkt 1...", "punkt 2..."],
+      "Paremie użyte": ["P01", "P08"],
+      "Założenia": ["Brak danych o X"]
+    }
+
+    Sprawa:
+    {case_facts}
+
+    Lista paremii (użyj tylko tych id i ich krótkich opisów):
+    {paremie}
+
+    Generuj teraz odpowiedź i nic więcej.
