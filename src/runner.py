@@ -12,8 +12,13 @@ import importlib.util
 from pathlib import Path
 from typing import List, Dict, Optional
 from datetime import datetime
+import logging
 
 from google import genai
+from utils import load_jsonl as utils_load_jsonl, format_paremie_text as utils_format_paremie_text, retrieve_top_k as utils_retrieve_top_k
+from llm import call_gemini_genai as llm_call_gemini_genai
+from parsers import parse_agent1_output as parsers_parse_agent1_output, parse_agent2_output as parsers_parse_agent2_output, compare_agent1_with_gold as parsers_compare_agent1_with_gold
+from storage import save_case_results as storage_save_case_results
 
 try:
     import requests
@@ -23,6 +28,10 @@ except Exception:
     requests = None
     yaml = None
     genai = None
+
+# configure logging
+logging.basicConfig(level=os.environ.get("SCAFFOLD_LOG_LEVEL", "INFO"))
+logger = logging.getLogger("selfcritique")
 
 # load project secrets from src/secrets.py (to avoid colliding with stdlib `secrets`)
 def _load_project_secrets():
@@ -43,63 +52,7 @@ CASES_FILE = DATA_DIR / "cases.jsonl"
 
 
 def load_jsonl(path: Path) -> List[Dict]:
-    txt = path.read_text(encoding="utf-8")
-    # try fast path: line-delimited JSON objects
-    items = []
-    lines = [l for l in txt.splitlines() if l.strip()]
-    ok = True
-    for ln in lines:
-        try:
-            items.append(json.loads(ln))
-        except Exception:
-            ok = False
-            break
-    if ok and items:
-        return items
-    # fallback: extract all balanced JSON objects from the file
-    return _extract_all_json_objects(txt)
-
-
-def _extract_all_json_objects(text: str) -> List[Dict]:
-    objs: List[Dict] = []
-    i = 0
-    n = len(text)
-    while i < n:
-        # find next { or [
-        j = None
-        for k in range(i, n):
-            if text[k] in '{[':
-                j = k
-                break
-        if j is None:
-            break
-        start_char = text[j]
-        stack = []
-        end = None
-        for k in range(j, n):
-            ch = text[k]
-            if ch == '{' or ch == '[':
-                stack.append(ch)
-            elif ch == '}' and stack and stack[-1] == '{':
-                stack.pop()
-                if not stack:
-                    end = k + 1
-                    break
-            elif ch == ']' and stack and stack[-1] == '[':
-                stack.pop()
-                if not stack:
-                    end = k + 1
-                    break
-        if end is None:
-            break
-        candidate = text[j:end]
-        try:
-            obj = json.loads(candidate)
-            objs.append(obj)
-        except Exception:
-            pass
-        i = end
-    return objs
+    return utils_load_jsonl(path)
 
 
 def tag_score(paremia: Dict, case_tags: List[str]) -> int:
@@ -153,7 +106,7 @@ def call_gemini_genai(prompt_text: str) -> Optional[str]:
     Model can be set via env var `GEMINI_MODEL` (default: gemini-3-flash-preview).
     """
     if genai is None:
-        print("genai package not available")
+        logger.error("genai package not available")
         return None
     
     # ensure API key env var set for client
@@ -163,7 +116,7 @@ def call_gemini_genai(prompt_text: str) -> Optional[str]:
     if not api_key:
         api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        print("Brakuje GEMINI_API_KEY dla genai client")
+        logger.error("Brakuje GEMINI_API_KEY dla genai client")
         return None
     
     os.environ["GEMINI_API_KEY"] = api_key
@@ -177,144 +130,20 @@ def call_gemini_genai(prompt_text: str) -> Optional[str]:
             return text
         return str(response)
     except Exception as e:
-        print("Błąd wywołania genai.Client():", e)
+        logger.error("Błąd wywołania genai.Client(): %s", e)
         return None
 
 
 def _extract_json_substring(text: str) -> Optional[str]:
-    # Find the first balanced JSON object or array in text using simple heuristics
-    for start_char in ('{', '['):
-        start_idx = text.find(start_char)
-        if start_idx == -1:
-            continue
-        stack = []
-        for i in range(start_idx, len(text)):
-            ch = text[i]
-            if ch == start_char:
-                stack.append(ch)
-            elif ch == '}' and stack and stack[-1] == '{':
-                stack.pop()
-                if not stack:
-                    candidate = text[start_idx:i+1]
-                    try:
-                        json.loads(candidate)
-                        return candidate
-                    except Exception:
-                        break
-            elif ch == ']' and stack and stack[-1] == '[':
-                stack.pop()
-                if not stack:
-                    candidate = text[start_idx:i+1]
-                    try:
-                        json.loads(candidate)
-                        return candidate
-                    except Exception:
-                        break
     return None
 
 
 def parse_agent1_output(text: str) -> Dict:
-    out = {"decision": None, "uzasadnienie": [], "used_paremie": [], "assumptions": [], "raw_text": text}
-    if not text:
-        return out
-    jstr = _extract_json_substring(text)
-    if jstr:
-        try:
-            data = json.loads(jstr)
-            out["decision"] = data.get("Decyzja") or data.get("decision")
-            out["uzasadnienie"] = data.get("Uzasadnienie") or data.get("justification") or []
-            used = data.get("Paremie użyte") or data.get("used_paremie") or []
-            if isinstance(used, str):
-                used = re.split(r"[,;\s]+", used.strip())
-            out["used_paremie"] = [u.strip().upper() for u in used if u]
-            out["assumptions"] = data.get("Założenia") or data.get("assumptions") or []
-            # do not return yet: if some fields (e.g. uzasadnienie) are missing
-            # try to extract them from the free-text body below
-            json_parsed = True
-        except Exception:
-            json_parsed = False
-    else:
-        json_parsed = False
-
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
-    for i, line in enumerate(lines):
-        m = re.match(r"Decyzja:\s*(zasadne|niezasadne|nie_dazy)", line, flags=re.I)
-        if m and not out["decision"]:
-            out["decision"] = m.group(1).lower()
-        if line.lower().startswith("paremie użyte") or line.lower().startswith("paremie uzyte") or line.lower().startswith("paremie:"):
-            rest = line.split(":", 1)[1] if ":" in line else ""
-            candidates = []
-            if rest:
-                candidates = re.split(r"[,;]\s*", rest)
-            j = i+1
-            while j < len(lines) and (lines[j].startswith("-") or re.match(r"^P\d{2}", lines[j])):
-                candidates.extend(re.findall(r"P\d{2}", lines[j]))
-                j += 1
-            out["used_paremie"] = [c.strip().upper() for c in candidates if c]
-        if line.lower().startswith("założenia") or line.lower().startswith("zalozenia") or line.lower().startswith("założenia i niepewności"):
-            j = i+1
-            asum = []
-            while j < len(lines) and not re.match(r"^Paremie|^Decyzja|^Uzasadnienie", lines[j], flags=re.I):
-                asum.append(lines[j])
-                j += 1
-            out["assumptions"] = asum
-        # extract numbered justification block if missing
-        if (not out.get("uzasadnienie")) and re.match(r"^Uzasadnienie[:\s]*$", line, flags=re.I):
-            j = i+1
-            just = []
-            while j < len(lines) and (re.match(r"^\d+\.|^-\s", lines[j]) or lines[j]):
-                # stop on next section header
-                if re.match(r"^(Paremie użyte|Paremie:|Założenia|Decyzja)", lines[j], flags=re.I):
-                    break
-                # strip numbering
-                cleaned = re.sub(r"^\d+\.?\s*", "", lines[j]).strip()
-                if cleaned:
-                    just.append(cleaned)
-                j += 1
-            if just:
-                out["uzasadnienie"] = just
-                # continue parsing in case other fields are present
-    return out
+    return parsers_parse_agent1_output(text)
 
 
 def parse_agent2_output(text: str) -> Dict:
-    out = {"rubric": {}, "errors": [], "suggested_fix": None, "raw_text": text}
-    if not text:
-        return out
-    jstr = _extract_json_substring(text)
-    if jstr:
-        try:
-            data = json.loads(jstr)
-            out["rubric"] = data.get("Rubryka") or data.get("rubric") or {}
-            out["errors"] = data.get("Lista błędów") or data.get("errors") or []
-            out["suggested_fix"] = data.get("Proponowana poprawka") or data.get("suggested_fix")
-            return out
-        except Exception:
-            pass
-
-    for line in text.splitlines():
-        m = re.match(r"[-\s]*Dob[oó]r paremii[:\s]+(\d+)", line, flags=re.I)
-        if m:
-            out["rubric"]["Dobór paremii"] = int(m.group(1))
-        m = re.match(r"[-\s]*Interpretacja paremii[:\s]+(\d+)", line, flags=re.I)
-        if m:
-            out["rubric"]["Interpretacja paremii"] = int(m.group(1))
-        m = re.match(r"[-\s]*Aplikacja[:\s]+(\d+)", line, flags=re.I)
-        if m:
-            out["rubric"]["Aplikacja"] = int(m.group(1))
-        m = re.match(r"[-\s]*Pomini[eę]cia[:\s]+(\d+)", line, flags=re.I)
-        if m:
-            out["rubric"]["Pominięcia"] = int(m.group(1))
-        m = re.match(r"[-\s]*Nadmierna pewno[sś][cć][:\s]+(\d+)", line, flags=re.I)
-        if m:
-            out["rubric"]["Nadmierna pewność"] = int(m.group(1))
-        m = re.match(r"[-\s]*dob[oó]r[:\s]+(.+)", line, flags=re.I)
-        if m:
-            out["errors"].append({"dobór": m.group(1).strip()})
-        m = re.match(r"[-\s]*pomini[eę]cie[:\s]+(.+)", line, flags=re.I)
-        if m:
-            out["errors"].append({"pominięcie": m.group(1).strip()})
-    return out
+    return parsers_parse_agent2_output(text)
 
 
 def compare_agent1_with_gold(case: Dict, parsed: Dict) -> Dict:
@@ -360,7 +189,7 @@ def run_case_llm(case_id: str):
     case_map = {c["id"]: c for c in cases}
     case = case_map.get(case_id)
     if not case:
-        print(f"Case {case_id} not found. Available: {', '.join(case_map.keys())}")
+        logger.error("Case %s not found. Available: %s", case_id, ', '.join(case_map.keys()))
         return
 
     # load templates
@@ -370,32 +199,32 @@ def run_case_llm(case_id: str):
     paremie_text = format_paremie_text(paremie)
     # Use safe replacement to avoid interpreting braces in example JSON inside the prompt
     prompt1 = tpl1.get("prompt", "").replace("{case_facts}", case.get("facts", "")).replace("{paremie}", paremie_text)
-    print(f"= Sprawa: {case['id']} - {case.get('title')} (LLM mode)")
+    logger.info("= Sprawa: %s - %s (LLM mode)", case['id'], case.get('title'))
 
     a1_raw = call_gemini_genai(prompt1)
     if a1_raw is None:
-        print("Nie udało się uzyskać odpowiedzi od Gemini. Kończę.")
+        logger.error("Nie udało się uzyskać odpowiedzi od Gemini. Kończę.")
         return
 
-    print("\n-- Agent 1 (LLM) raw output --")
-    print(a1_raw)
+    logger.info("-- Agent 1 (LLM) raw output --")
+    logger.info("%s", a1_raw)
 
     # parse Agent1 output (safe JSON-extract or heuristics)
     parsed_a1 = parse_agent1_output(a1_raw)
-    print("\n-- Agent 1 parsed output --")
-    print(f"Decision: {parsed_a1.get('decision')}")
-    print(f"Used paremie: {parsed_a1.get('used_paremie')}")
-    print(f"Assumptions: {parsed_a1.get('assumptions')}")
+    logger.info("-- Agent 1 parsed output --")
+    logger.info("Decision: %s", parsed_a1.get('decision'))
+    logger.info("Used paremie: %s", parsed_a1.get('used_paremie'))
+    logger.info("Assumptions: %s", parsed_a1.get('assumptions'))
 
     # compare with gold
     metrics = compare_agent1_with_gold(case, parsed_a1)
-    print("\n-- Automatic evaluation (Agent1 vs gold) --")
-    print(f"Decision match: {metrics['decision_match']} (pred={metrics['pred_decision']}, gold={metrics['gold_decision']})")
-    print(f"Paremie precision: {metrics['precision']:.2f}, recall: {metrics['recall']:.2f}")
-    print(f"True positives: {metrics['tp']}")
+    logger.info("-- Automatic evaluation (Agent1 vs gold) --")
+    logger.info("Decision match: %s (pred=%s, gold=%s)", metrics['decision_match'], metrics['pred_decision'], metrics['gold_decision'])
+    logger.info("Paremie precision: %.2f, recall: %.2f", metrics['precision'], metrics['recall'])
+    logger.info("True positives: %s", metrics['tp'])
     # if parsing failed (no decision or no paremie), try a forced JSON-generation retry
     if parsed_a1.get('decision') is None or not parsed_a1.get('used_paremie'):
-        print('\nAgent1 output did not contain structured data; attempting forced JSON retry...')
+        logger.warning('Agent1 output did not contain structured data; attempting forced JSON retry...')
         forced = {
             "case_facts": case.get("facts", ""),
             "paremie": paremie_text,
@@ -407,35 +236,35 @@ def run_case_llm(case_id: str):
         )
         a1_raw2 = call_gemini_genai(forced_prompt)
         if a1_raw2:
-            print('\n-- Agent 1 (LLM) forced retry raw output --')
-            print(a1_raw2)
+            logger.info('-- Agent 1 (LLM) forced retry raw output --')
+            logger.info('%s', a1_raw2)
             parsed_a1 = parse_agent1_output(a1_raw2)
-            print('\n-- Agent 1 parsed output (after retry) --')
-            print(f"Decision: {parsed_a1.get('decision')}")
-            print(f"Used paremie: {parsed_a1.get('used_paremie')}")
+            logger.info('-- Agent 1 parsed output (after retry) --')
+            logger.info('Decision: %s', parsed_a1.get('decision'))
+            logger.info('Used paremie: %s', parsed_a1.get('used_paremie'))
             metrics = compare_agent1_with_gold(case, parsed_a1)
-            print(f"Paremie precision: {metrics['precision']:.2f}, recall: {metrics['recall']:.2f}")
+            logger.info('Paremie precision: %.2f, recall: %.2f', metrics['precision'], metrics['recall'])
 
     # Agent 2: build prompt including Agent1 response
     prompt2 = tpl2.get("prompt", "").replace("{case_facts}", case.get("facts", "")).replace("{agent1_response}", a1_raw or "").replace("{paremie}", paremie_text)
     a2_raw = call_gemini_genai(prompt2)
     if a2_raw is None:
-        print("Nie udało się uzyskać odpowiedzi krytyka od Gemini. Kończę.")
+        logger.error("Nie udało się uzyskać odpowiedzi krytyka od Gemini. Kończę.")
         return
 
-    print("\n-- Agent 2 (LLM) raw output --")
-    print(a2_raw)
+    logger.info("-- Agent 2 (LLM) raw output --")
+    logger.info('%s', a2_raw)
 
     # parse Agent2 output
     parsed_a2 = parse_agent2_output(a2_raw)
-    print("\n-- Agent 2 parsed output --")
-    print(f"Rubric: {parsed_a2.get('rubric')}")
-    print(f"Errors: {parsed_a2.get('errors')}")
+    logger.info("-- Agent 2 parsed output --")
+    logger.info("Rubric: %s", parsed_a2.get('rubric'))
+    logger.info("Errors: %s", parsed_a2.get('errors'))
     if parsed_a2.get('suggested_fix'):
-        print(f"Suggested fix: {parsed_a2.get('suggested_fix')}")
+        logger.info("Suggested fix: %s", parsed_a2.get('suggested_fix'))
     # retry Agent2 forcing JSON if parser found nothing useful
     if not parsed_a2.get('rubric'):
-        print('\nAgent2 output did not contain structured rubric; attempting forced JSON retry...')
+        logger.warning('Agent2 output did not contain structured rubric; attempting forced JSON retry...')
         forced2 = (
             "Na podstawie poniższych faktów i odpowiedzi Agenta 1 wygeneruj jedną ocenę krytyczną w formacie JSON. "
             "Zwróć jedynie poprawny JSON, np. {\"Rubryka\": {...}, \"Lista błędów\": [...], \"Proponowana poprawka\": \"...\"}. "
@@ -443,12 +272,12 @@ def run_case_llm(case_id: str):
         )
         a2_raw2 = call_gemini_genai(forced2)
         if a2_raw2:
-            print('\n-- Agent 2 (LLM) forced retry raw output --')
-            print(a2_raw2)
+            logger.info('-- Agent 2 (LLM) forced retry raw output --')
+            logger.info('%s', a2_raw2)
             parsed_a2 = parse_agent2_output(a2_raw2)
-            print('\n-- Agent 2 parsed output (after retry) --')
-            print(f"Rubric: {parsed_a2.get('rubric')}")
-            print(f"Errors: {parsed_a2.get('errors')}")
+            logger.info('-- Agent 2 parsed output (after retry) --')
+            logger.info('Rubric: %s', parsed_a2.get('rubric'))
+            logger.info('Errors: %s', parsed_a2.get('errors'))
 
     # finalize and save per-case results
     a1_raw_final = a1_raw2 if ('a1_raw2' in locals() and a1_raw2) else a1_raw
@@ -462,9 +291,9 @@ def run_case_llm(case_id: str):
     }
     try:
         save_case_results(case_id, results_payload)
-        print(f"\nSaved results to results/{case_id}/")
+        logger.info("Saved results to results/%s/", case_id)
     except Exception as e:
-        print("Błąd zapisu wyników:", e)
+        logger.error("Błąd zapisu wyników: %s", e)
 
 
 
@@ -528,30 +357,30 @@ def run_case(case_id: str):
         print(f"Case {case_id} not found. Available: {', '.join(case_map.keys())}")
         return
 
-    print(f"= Sprawa: {case['id']} - {case.get('title')}")
+    logger.info("= Sprawa: %s - %s", case['id'], case.get('title'))
     a1 = naive_agent1(case, paremie)
-    print("\n-- Agent 1 (generator) --")
-    print(f"Decyzja: {a1['decision']}")
-    print("Uzasadnienie:")
+    logger.info("-- Agent 1 (generator) --")
+    logger.info("Decyzja: %s", a1['decision'])
+    logger.info("Uzasadnienie:")
     for p in a1['uzasadnienie']:
-        print(p)
-    print("Paremie użyte:", ", ".join(a1['used_paremie']))
-    print("Założenia:")
+        logger.info("%s", p)
+    logger.info("Paremie użyte: %s", ", ".join(a1['used_paremie']))
+    logger.info("Założenia:")
     for a in a1['assumptions']:
-        print("- ", a)
+        logger.info("- %s", a)
 
     a2 = naive_agent2(a1, case)
-    print("\n-- Agent 2 (krytyk) --")
-    print("Rubryka:")
+    logger.info("-- Agent 2 (krytyk) --")
+    logger.info("Rubryka:")
     for k, v in a2['rubric'].items():
-        print(f"- {k}: {v}/5")
+        logger.info("- %s: %s/5", k, v)
     if a2['errors']:
-        print("Lista błędów:")
+        logger.info("Lista błędów:")
         for e in a2['errors']:
             for t, m in e.items():
-                print(f"- {t}: {m}")
-    print("\nSugerowana poprawka:")
-    print(a2['suggested_fix'])
+                logger.info("- %s: %s", t, m)
+    logger.info("Sugerowana poprawka:")
+    logger.info("%s", a2['suggested_fix'])
     # save naive-run results as well
     try:
         metrics = compare_agent1_with_gold(case, {"decision": a1.get("decision"), "used_paremie": a1.get("used_paremie")})
@@ -563,15 +392,15 @@ def run_case(case_id: str):
             "metrics": metrics,
         }
         save_case_results(case["id"], payload)
-        print(f"\nSaved results to results/{case['id']}/")
+        logger.info("Saved results to results/%s/", case['id'])
     except Exception as e:
-        print("Błąd zapisu wyników (naive):", e)
+        logger.error("Błąd zapisu wyników (naive): %s", e)
 
 
 def list_cases():
     cases = load_jsonl(CASES_FILE)
     for c in cases:
-        print(f"{c['id']}: {c.get('title')} ({c.get('label')})")
+        logger.info("%s: %s (%s)", c['id'], c.get('title'), c.get('label'))
 
 
 def main():
@@ -585,12 +414,12 @@ def main():
         list_cases()
     elif args.command == "run":
         if not args.case_id:
-            print("Podaj case_id, np.: run C01")
+            logger.error("Podaj case_id, np.: run C01")
             return
         # choose pipeline: naive vs LLM-based
         if args.use_gemini:
             if requests is None or yaml is None:
-                print("Brakuje zależności 'requests' lub 'PyYAML'. Zainstaluj je: pip install -r requirements.txt")
+                logger.error("Brakuje zależności 'requests' lub 'PyYAML'. Zainstaluj je: pip install -r requirements.txt")
                 return
             run_case_llm(args.case_id)
         else:
