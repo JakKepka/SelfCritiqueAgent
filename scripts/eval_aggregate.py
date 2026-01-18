@@ -207,6 +207,14 @@ def main():
         print("Brak biblioteki matplotlib. Wykresy nie zostały wygenerowane.")
         print("Zainstaluj: pip install matplotlib")
         return
+    
+    def add_value_labels(ax, bars, values, fmt='.3f'):
+        """Dodaje wartości numeryczne nad słupkami."""
+        for bar, val in zip(bars, values):
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width() / 2., height,
+                    f'{val:{fmt}}',
+                    ha='center', va='bottom', fontsize=9, fontweight='bold')
         
     try:
         fig, axes = plt.subplots(2, 2, figsize=(14, 10))
@@ -221,14 +229,16 @@ def main():
         v1_pr = [averages["agent1"].get(m, 0) for m in pr_vars]
         v2_pr = [averages["agent2"].get(m, 0) for m in pr_vars]
         
-        ax1.bar([p - width/2 for p in x_pr], v1_pr, width, label='Agent 1', color='skyblue')
-        ax1.bar([p + width/2 for p in x_pr], v2_pr, width, label='Agent 2', color='salmon')
+        bars1 = ax1.bar([p - width/2 for p in x_pr], v1_pr, width, label='Agent 1', color='skyblue')
+        bars2 = ax1.bar([p + width/2 for p in x_pr], v2_pr, width, label='Agent 2', color='salmon')
         ax1.set_title('Trafność doboru paremii')
         ax1.set_xticks(x_pr)
         ax1.set_xticklabels(pr_labels)
         ax1.set_ylim(0, 1.1)
         ax1.set_ylabel('Score (0-1)')
         ax1.legend()
+        add_value_labels(ax1, bars1, v1_pr)
+        add_value_labels(ax1, bars2, v2_pr)
 
         # Plot 2: Decision Accuracy & F1 (0-1)
         ax2 = axes[0, 1]
@@ -239,14 +249,16 @@ def main():
         v1_dec = [averages["agent1"].get(m, 0) for m in dec_vars]
         v2_dec = [averages["agent2"].get(m, 0) for m in dec_vars]
         
-        ax2.bar([p - width/2 for p in x_dec], v1_dec, width, label='Agent 1', color='skyblue')
-        ax2.bar([p + width/2 for p in x_dec], v2_dec, width, label='Agent 2', color='salmon')
+        bars1 = ax2.bar([p - width/2 for p in x_dec], v1_dec, width, label='Agent 1', color='skyblue')
+        bars2 = ax2.bar([p + width/2 for p in x_dec], v2_dec, width, label='Agent 2', color='salmon')
         ax2.set_title('Klasyfikacja decyzji (zasadne/niezasadne)')
         ax2.set_xticks(x_dec)
         ax2.set_xticklabels(dec_labels)
         ax2.set_ylim(0, 1.1)
         ax2.set_ylabel('Score (0-1)')
         ax2.legend()
+        add_value_labels(ax2, bars1, v1_dec)
+        add_value_labels(ax2, bars2, v2_dec)
 
         # Plot 3: Justification Score (1-5)
         ax3 = axes[1, 0]
@@ -255,14 +267,16 @@ def main():
         v2_j = [averages["agent2"].get("justification_score", 0)]
         
         x_j = range(1)
-        ax3.bar([p - width/2 for p in x_j], v1_j, width, label='Agent 1', color='skyblue')
-        ax3.bar([p + width/2 for p in x_j], v2_j, width, label='Agent 2', color='salmon')
+        bars1 = ax3.bar([p - width/2 for p in x_j], v1_j, width, label='Agent 1', color='skyblue')
+        bars2 = ax3.bar([p + width/2 for p in x_j], v2_j, width, label='Agent 2', color='salmon')
         ax3.set_title('Jakość uzasadnienia')
         ax3.set_xticks(x_j)
         ax3.set_xticklabels(["Score"])
         ax3.set_ylim(0, 5.5)
         ax3.set_ylabel('Score (1-5)')
         ax3.legend()
+        add_value_labels(ax3, bars1, v1_j)
+        add_value_labels(ax3, bars2, v2_j)
         
         # Plot 4: Combined overview (normalize to 0-1)
         ax4 = axes[1, 1]
@@ -284,14 +298,16 @@ def main():
         ]
         
         x_all = range(len(all_metrics))
-        ax4.bar([p - width/2 for p in x_all], v1_all, width, label='Agent 1', color='skyblue')
-        ax4.bar([p + width/2 for p in x_all], v2_all, width, label='Agent 2', color='salmon')
+        bars1 = ax4.bar([p - width/2 for p in x_all], v1_all, width, label='Agent 1', color='skyblue')
+        bars2 = ax4.bar([p + width/2 for p in x_all], v2_all, width, label='Agent 2', color='salmon')
         ax4.set_title('Zestawienie ogólne (znormalizowane 0-1)')
         ax4.set_xticks(x_all)
         ax4.set_xticklabels(all_labels, rotation=15, ha='right')
         ax4.set_ylim(0, 1.1)
         ax4.set_ylabel('Normalized Score')
         ax4.legend()
+        add_value_labels(ax4, bars1, v1_all)
+        add_value_labels(ax4, bars2, v2_all)
         
         plt.tight_layout()
         plt.savefig(PLOT_FILE, dpi=150)

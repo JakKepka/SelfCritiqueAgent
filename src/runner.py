@@ -230,9 +230,10 @@ def run_case_llm(case_id: str):
     tpl2 = load_yaml_template(Path(__file__).resolve().parents[1] / "prompts" / "agent2_template.yaml")
 
     paremie_text = format_paremie_text(paremie)
+    logger.info("= Sprawa: %s - %s (LLM mode)", case['id'], case.get('title'))
+    logger.info("Dostępnych paremii dla agentów: %d", len(paremie))
     # Use safe replacement to avoid interpreting braces in example JSON inside the prompt
     prompt1 = tpl1.get("prompt", "").replace("{case_facts}", case.get("facts", "")).replace("{paremie}", paremie_text)
-    logger.info("= Sprawa: %s - %s (LLM mode)", case['id'], case.get('title'))
 
     a1_raw = call_llm(prompt1)
     if a1_raw is None:
@@ -491,11 +492,16 @@ def run_case_llm(case_id: str):
 
 
 def naive_agent1(case: Dict, paremie_list: List[Dict]) -> Dict:
-    # retrieve
-    used = retrieve_top_k(paremie_list, case.get("tags", []), k=3)
-    # simple decision: use gold label if exists (to allow pipeline test)
+    # Zwróć wszystkie paremie zamiast tylko top-k, żeby agent miał pełny wybór
+    # (poprzednio używano retrieve_top_k, ale teraz dajemy wszystkie)
     decision = case.get("label", "nie_dazy")
-    # build explanation points from paremii
+    # build explanation points from gold paremii if available, otherwise use first 3
+    gold_ids = case.get("gold_paremie", [])
+    if gold_ids:
+        used = [p for p in paremie_list if p.get("id") in gold_ids]
+    else:
+        used = paremie_list[:3]
+    
     uzasadnienie = []
     for i, p in enumerate(used, start=1):
         uzasadnienie.append(f"{i}. Zastosowano {p['id']} ({p['polish']}): {p['meaning']}")

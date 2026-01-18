@@ -22,7 +22,6 @@ prompt: |
   Etykiety (krótkie opisy):
   - zasadne: Agenta1 trafnie wskazał reguły i wynik jest uzasadniony.
   - niezasadne: Agenta1 wskazał, że reguła nie ma zastosowania.
-  - niejednoznaczne: ocena wskazuje, że nie ma wystarczających danych do rozstrzygnięcia.
 
   Format odpowiedzi (wyłącznie):
   Rubryka:
@@ -43,6 +42,8 @@ prompt: |
   - ...
 
   WAŻNE: Nie odpowiadaj "Rozumiem" ani nie proś o dodatkowe informacje. Od razu wygeneruj ocenę w formacie JSON opisanym poniżej.
+
+  
 
   Przykład oczekiwanego JSON:
   {
@@ -69,6 +70,7 @@ prompt: |
 
   Wygeneruj teraz ocenę (tylko JSON).
 
+  Kiedy zwracasz decision, nie musi być takie jak dla agenta pierwszego. Czasami kiedy uwazasz ze dezycja jest bledna dajesz inna decyzje!!!
   Przykład wyniku:
   {
     "rubric": {"Dobór paremii":4,"Interpretacja paremii":4,"Aplikacja":4,"Pominięcia":2,"Nadmierna pewność":4},
