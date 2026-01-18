@@ -65,10 +65,28 @@ prompt: |
   Dodatkowo, na podstawie faktów sprawy oraz wyników oceny krytycznej przygotuj zwięzłe uzasadnienie orzeczenia
   w stylu sądowym. Nie odnoś się do Agenta1 ani do uwag krytyka wprost — przedstaw finalne uzasadnienie merytoryczne,
   które mogłoby być częścią uzasadnienia sądowego. Dołącz to uzasadnienie jako pole JSON `Uzasadnienie_sadowe` — listę
-  krótkich akapitów/punktów.
+  krótkich akapitów/punktów. To sie tyczy pola "Uzasadnienie_sadowe" w przykładzie JSON powyżej.
 
   Wygeneruj teraz ocenę (tylko JSON).
 
+  Przykład wyniku:
+  {
+    "rubric": {"Dobór paremii":4,"Interpretacja paremii":4,"Aplikacja":4,"Pominięcia":2,"Nadmierna pewność":4},
+    "errors":[{"pominięcie":"Brakuje paremi: P09"}],
+    "suggested_fix":"Dodać P09; doprecyzować możliwość odstąpienia/obniżenia ceny gdy naprawa nie usuwa wady.",
+    "recommended_paremie":["P01","P08","P09"],
+    "decision":"zasadne",
+    "uzasadnienie_poprawione":[
+    "1. Zgodnie z P01 sprzedawca odpowiada za wadę fizyczną rzeczy sprzedanej.",
+    "2. Wada ujawniła się po 2 tygodniach; naprawa została zaproponowana, lecz brak gwarancji usunięcia wady — P08 uprawnia do żądania obniżenia ceny lub odstąpienia od umowy.",
+    "3. P09 reguluje procedurę reklamacyjną i potwierdza możliwość odstąpienia/obniżenia ceny przy nieefektywnej naprawie — zatem roszczenie konsumenta jest zasadne."
+    ],
+    "Uzasadnienie_sadowe":[
+    "1) Sprzedawca był odpowiedzialny za wydanie rzeczy wolnej od wad (P01).",
+    "2) Wada ujawniła się po 2 tygodniach; naprawa nie gwarantuje usunięcia wady — zatem konsument ma alternatywne roszczenia (P08).",
+    "3) Procedura reklamacyjna i terminy (P09) potwierdzają możliwość odstąpienia od umowy lub żądania obniżenia ceny."
+    ]
+  }
 placeholders:
   case_facts: "{case_facts}"
   agent1_response: "{agent1_response}"

@@ -230,7 +230,7 @@ def score_justification_against_gold(case: Dict, parsed: Dict, key_pred: str = "
     shares at least one non-stopword token. Score 1-5 = round(5 * matched_fraction) with minimum 1.
     Returns dict: {score, matched, gold_total, details}.
     """
-    gold = case.get("gold_uzasadnienie") or case.get("gold_uzasad") or case.get("gold_rationale")
+    gold = case.get("gold_uzasadnienie") or case.get("gold_uzasad") or case.get("gold_rationale") or case.get("gold_explanation") or case.get("gold_reasoning")
     if not gold:
         return {"score": None, "matched": 0, "gold_total": 0, "details": []}
 

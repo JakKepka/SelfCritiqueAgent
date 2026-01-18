@@ -331,9 +331,49 @@ def run_case_llm(case_id: str):
             judge_tpl_path = Path(__file__).resolve().parents[1] / "prompts" / "agent_judge_template.yaml"
             if judge_tpl_path.exists():
                 tpl_j = load_yaml_template(judge_tpl_path)
-                gold_text = "\n".join(case.get("gold_uzasadnienie", [])) if case.get("gold_uzasadnienie") else case.get("gold_uzasadnienie", "")
-                a1_text = parsed_a1.get("uzasadnienie") if isinstance(parsed_a1.get("uzasadnienie"), str) else "\n".join(parsed_a1.get("uzasadnienie", []))
-                a2_text = parsed_a2.get("Uzasadnienie_sadowe") if parsed_a2.get("Uzasadnienie_sadowe") else parsed_a2.get("uzasadnienie_poprawione") if parsed_a2.get("uzasadnienie_poprawione") else ("\n".join(parsed_a2.get("uzasadnienie", [])) if parsed_a2.get("uzasadnienie") else "")
+                # helper to obtain justification text from parsed dict or its raw_text/raw
+                def _just_text_from_parsed(parsed, preferred_keys=None):
+                    preferred_keys = preferred_keys or ["Uzasadnienie_sadowe", "uzasadnienie_poprawione", "Uzasadnienie_sądowe", "uzasadnienie_sadowe", "uzasadnienie"]
+                    if not parsed:
+                        return ""
+                    # if parsed is string
+                    if isinstance(parsed, str):
+                        return parsed
+                    # check keys
+                    for k in preferred_keys:
+                        v = parsed.get(k)
+                        if v:
+                            if isinstance(v, str):
+                                return v
+                            if isinstance(v, list):
+                                return "\n".join(v)
+                    # try raw_text / raw fields
+                    for rk in ("raw_text", "raw", "raw_response", "raw_output"):
+                        rv = parsed.get(rk)
+                        if not rv or not isinstance(rv, str):
+                            continue
+                        # try parse JSON substring
+                        j = None
+                        try:
+                            import json as _json
+                            m = re.search(r"\{[\s\S]*\}", rv)
+                            if m:
+                                j = _json.loads(m.group(0))
+                        except Exception:
+                            j = None
+                        if isinstance(j, dict):
+                            for k in preferred_keys:
+                                if k in j and j.get(k):
+                                    v = j.get(k)
+                                    if isinstance(v, str):
+                                        return v
+                                    if isinstance(v, list):
+                                        return "\n".join(v)
+                    return ""
+
+                gold_text = "\n".join(case.get("gold_uzasadnienie", [])) if case.get("gold_uzasadnienie") else (case.get("gold_explanation") or case.get("gold_uzasad") or case.get("gold_rationale") or "")
+                a1_text = _just_text_from_parsed(parsed_a1, preferred_keys=["uzasadnienie", "Uzasadnienie"]) 
+                a2_text = _just_text_from_parsed(parsed_a2)
                 judge_prompt = tpl_j.get("prompt", "").replace("{gold_uzasadnienie}", gold_text).replace("{agent1_uzasadnienie}", a1_text).replace("{agent2_uzasadnienie}", a2_text)
                 judge_raw = call_llm(judge_prompt)
                 logger.info("-- LLM Judge raw output --")
@@ -379,6 +419,58 @@ def run_case_llm(case_id: str):
         parsed_a2_enriched.setdefault("recommended_paremie", metrics_agent2.get("pred_after", []))
         # ensure Agent2 file contains a decision field (agreeing or overriding Agent1)
         parsed_a2_enriched.setdefault("decision", parsed_a1.get("decision"))
+        # Ensure court-style justification is preserved if present in raw parse or raw_text
+        try:
+            # possible field names to look for
+            candidate_fields = ["Uzasadnienie_sadowe", "uzasadnienie_poprawione", "Uzasadnienie_sądowe", "uzasadnienie_sadowe"]
+            # helper to try to extract JSON from a raw string
+            def _extract_json_from_text(s: str):
+                if not s or not isinstance(s, str):
+                    return None
+                # direct json
+                try:
+                    return json.loads(s)
+                except Exception:
+                    pass
+                # find first {...} that looks like JSON
+                m = re.search(r"\{[\s\S]*\}", s)
+                if m:
+                    try:
+                        return json.loads(m.group(0))
+                    except Exception:
+                        return None
+                return None
+
+            # check existing keys
+            for f in candidate_fields:
+                if f in parsed_a2_enriched and parsed_a2_enriched.get(f):
+                    break
+
+            # if not found, try to extract from common raw fields
+            if not any(parsed_a2_enriched.get(f) for f in candidate_fields):
+                raw_candidates = []
+                for key in ("raw_text", "raw", "raw_output", "raw_response"):
+                    v = parsed_a2.get(key) if isinstance(parsed_a2, dict) else None
+                    if v:
+                        raw_candidates.append(v)
+                # also include top-level string parse
+                if isinstance(parsed_a2, str):
+                    raw_candidates.append(parsed_a2)
+                for rc in raw_candidates:
+                    j = _extract_json_from_text(rc)
+                    if isinstance(j, dict):
+                        for f in candidate_fields:
+                            if f in j and j.get(f):
+                                parsed_a2_enriched.setdefault(f, j.get(f))
+                        # also check for lower-case keys
+                        for k, v in j.items():
+                            if k.lower() in (cf.lower() for cf in candidate_fields) and v:
+                                parsed_a2_enriched.setdefault(k, v)
+                        # stop if we've found at least one
+                        if any(parsed_a2_enriched.get(f) for f in candidate_fields):
+                            break
+        except Exception:
+            pass
     except Exception:
         parsed_a2_enriched = parsed_a2
 

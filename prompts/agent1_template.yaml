@@ -69,7 +69,10 @@ prompt: |
     Zwracaj tylko paremie w postaci PXX bez zadnego opisu.
     {
       "Decyzja": "zasadne",
-      "Uzasadnienie": ["punkt 1...", "punkt 2..."],
+      "Uzasadnienie": [
+        "1. (...)", 
+        "2. (...)"
+      ],
       "Paremie użyte": ["P01", "P08"],
       "Założenia": ["Brak danych o X"]
     }
@@ -81,3 +84,18 @@ prompt: |
     {paremie}
 
     Generuj teraz odpowiedź i nic więcej.
+
+
+  Przykład wyniku:
+
+  Przykładowy obiekt (parsowany):
+  {
+    "decision": "zasadne",
+    "used_paremie": ["P01","P08"],
+    "uzasadnienie": [
+    "1. Konsument kupił lodówkę; po 2 tygodniach przestała działać — odpowiedzialność sprzedawcy z tytułu rękojmi (P01).",
+    "2. Zgodnie z P08, gdy wada istotna, konsument może żądać obniżenia ceny lub odstąpienia od umowy.",
+    "3. Sprzedawca oferuje naprawę; konsument żąda odstąpienia lub obniżenia ceny — stosuję powyższe reguły."
+    ],
+    "assumptions": ["Brak informacji o wcześniejszych próbach naprawy lub gwarancji; przyjmuję, że wada utrzymuje się po naprawie."]
+  }
