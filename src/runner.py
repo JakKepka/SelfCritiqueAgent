@@ -58,6 +58,8 @@ CASES_FILE = DATA_DIR / "cases.jsonl"
 CHECK_JUSTIFICATION = True
 # LLM provider flag: 'gemini' or 'openai'
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "gemini")
+# Output directory name (subfolder in results/)
+OUTPUT_DIR = "tmp"
 
 
 def load_jsonl(path: Path) -> List[Dict]:
@@ -171,8 +173,8 @@ def compare_agent1_with_gold(case: Dict, parsed: Dict) -> Dict:
 
 
 def save_case_results(case_id: str, data: Dict):
-    """Save agent outputs, parsed data and metrics under results/{case_id}/"""
-    results_root = ROOT / "results"
+    """Save agent outputs, parsed data and metrics under results/{OUTPUT_DIR}/{case_id}/"""
+    results_root = ROOT / "results" / OUTPUT_DIR
     case_dir = results_root / case_id
     case_dir.mkdir(parents=True, exist_ok=True)
     # save raw texts
@@ -485,7 +487,7 @@ def run_case_llm(case_id: str):
     }
     try:
         save_case_results(case_id, results_payload)
-        logger.info("Saved results to results/%s/", case_id)
+        logger.info("Saved results to results/%s/%s/", OUTPUT_DIR, case_id)
     except Exception as e:
         logger.error("Błąd zapisu wyników: %s", e)
 
@@ -609,7 +611,7 @@ def run_case(case_id: str):
             "metrics_agent2": metrics_agent2,
         }
         save_case_results(case["id"], payload)
-        logger.info("Saved results to results/%s/", case['id'])
+        logger.info("Saved results to results/%s/%s/", OUTPUT_DIR, case['id'])
     except Exception as e:
         logger.error("Błąd zapisu wyników (naive): %s", e)
 
@@ -628,6 +630,7 @@ def main():
     parser.add_argument("--use-gemini", action="store_true", help="Użyć Gemini API (wymaga ustawionego GEMINI_API_KEY i GEMINI_API_URL)")
     parser.add_argument("--use-openai", action="store_true", help="Użyć OpenAI GPT API (wymaga ustawionego OPENAI_API_KEY)")
     parser.add_argument("--check-justification", action="store_true", help="Włączyć sprawdzanie uzasadnień Agenta1/2 względem gold_uzasadnienie (skala 1-5)")
+    parser.add_argument("--output-dir", type=str, default="tmp", help="Nazwa folderu wyjściowego w results/ (domyślnie: tmp)")
     args = parser.parse_args()
     
     if args.command == "list":
@@ -642,7 +645,8 @@ def main():
             
         # choose pipeline: naive vs LLM-based
         # set justification check flag
-        global CHECK_JUSTIFICATION
+        global CHECK_JUSTIFICATION, OUTPUT_DIR
+        OUTPUT_DIR = args.output_dir
         CHECK_JUSTIFICATION = True #bool(args.check_justification)
 
         # mutually exclusive: prefer explicit selection

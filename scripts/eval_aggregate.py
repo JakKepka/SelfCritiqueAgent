@@ -20,9 +20,17 @@ except ImportError:
     HAS_MATPLOTLIB = False
 import statistics
 
-RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
-REPORT_FILE = RESULTS_DIR / "evaluation_report.json"
-PLOT_FILE = RESULTS_DIR / "evaluation_plots.png"
+ROOT_DIR = Path(__file__).resolve().parents[1]
+RESULTS_BASE = ROOT_DIR / "results"
+
+def get_results_dir(output_dir="tmp"):
+    return RESULTS_BASE / output_dir
+
+def get_report_file(output_dir="tmp"):
+    return RESULTS_BASE / output_dir / "evaluation_report.json"
+
+def get_plot_file(output_dir="tmp"):
+    return RESULTS_BASE / output_dir / "evaluation_plots.png"
 
 def load_case_metrics(case_dir: Path):
     m1 = {}
@@ -105,7 +113,11 @@ def compute_f1_multiclass(y_true, y_pred, labels=None):
     
     return statistics.mean(f1_scores) if f1_scores else 0.0
 
-def main():
+def main(output_dir="tmp"):
+    RESULTS_DIR = get_results_dir(output_dir)
+    REPORT_FILE = get_report_file(output_dir)
+    PLOT_FILE = get_plot_file(output_dir)
+    
     if not RESULTS_DIR.exists():
         print(f"Katalog {RESULTS_DIR} nie istnieje.")
         return
@@ -317,4 +329,10 @@ def main():
         print(f"Błąd generowania wykresów: {e}")
 
 if __name__ == "__main__":
-    main()
+    import sys
+    output_dir = "tmp"
+    if len(sys.argv) > 1 and sys.argv[1] == "--output-dir" and len(sys.argv) > 2:
+        output_dir = sys.argv[2]
+    elif len(sys.argv) > 1 and not sys.argv[1].startswith("--"):
+        output_dir = sys.argv[1]
+    main(output_dir)
