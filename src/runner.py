@@ -617,7 +617,8 @@ def list_cases():
 def main():
     parser = argparse.ArgumentParser(description="Runner prototypu SelfCritiqueAgent")
     parser.add_argument("command", choices=["list", "run"], help="list/run")
-    parser.add_argument("case_id", nargs="?", help="ID sprawy, np. C01")
+    parser.add_argument("case_id", nargs="?", help="ID sprawy, np. C01 lub 'all' dla wszystkich")
+    parser.add_argument("--all", action="store_true", help="Uruchomić wszystkie sprawy z datasetu")
     parser.add_argument("--use-gemini", action="store_true", help="Użyć Gemini API (wymaga ustawionego GEMINI_API_KEY i GEMINI_API_URL)")
     parser.add_argument("--use-openai", action="store_true", help="Użyć OpenAI GPT API (wymaga ustawionego OPENAI_API_KEY)")
     parser.add_argument("--check-justification", action="store_true", help="Włączyć sprawdzanie uzasadnień Agenta1/2 względem gold_uzasadnienie (skala 1-5)")
@@ -626,9 +627,13 @@ def main():
     if args.command == "list":
         list_cases()
     elif args.command == "run":
-        if not args.case_id:
-            logger.error("Podaj case_id, np.: run C01")
+        # Determine which cases to run
+        run_all = args.all or (args.case_id and args.case_id.lower() == "all")
+        
+        if not run_all and not args.case_id:
+            logger.error("Podaj case_id, np.: run C01, lub użyj --all")
             return
+            
         # choose pipeline: naive vs LLM-based
         # set justification check flag
         global CHECK_JUSTIFICATION
@@ -652,10 +657,26 @@ def main():
             LLM_PROVIDER = "gemini"
             os.environ["LLM_PROVIDER"] = "gemini"
 
-        if args.use_gemini or args.use_openai:
-            run_case_llm(args.case_id)
+        # Run cases
+        if run_all:
+            cases = load_jsonl(CASES_FILE)
+            logger.info("Uruchamianie wszystkich %d spraw...", len(cases))
+            for i, case in enumerate(cases, 1):
+                cid = case.get("id")
+                logger.info("\n[%d/%d] Przetwarzanie sprawy: %s", i, len(cases), cid)
+                try:
+                    if args.use_gemini or args.use_openai:
+                        run_case_llm(cid)
+                    else:
+                        run_case(cid)
+                except Exception as e:
+                    logger.error("Błąd przetwarzania sprawy %s: %s", cid, e)
+            logger.info("\nZakończono przetwarzanie wszystkich spraw.")
         else:
-            run_case(args.case_id)
+            if args.use_gemini or args.use_openai:
+                run_case_llm(args.case_id)
+            else:
+                run_case(args.case_id)
 
 
 if __name__ == "__main__":
