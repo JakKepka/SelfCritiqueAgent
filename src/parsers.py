@@ -213,3 +213,67 @@ def compare_agent2_with_gold(case: Dict, agent1_parsed: Dict, agent2_parsed: Dic
         "gold": sorted(list(gold)),
         "modifications": modifications,
     }
+
+
+def _normalize_text(s: str) -> list:
+    s = (s or "").lower()
+    s = re.sub(r"[^a-z0-9ąćęłńóśżź\s]", " ", s)
+    toks = [t for t in re.split(r"\s+", s) if t]
+    stop = {"i", "oraz", "na", "w", "do", "z", "że", "się", "nie", "o", "a", "jest", "są", "by", "dla", "tak"}
+    return [t for t in toks if t not in stop]
+
+
+def score_justification_against_gold(case: Dict, parsed: Dict, key_pred: str = "uzasadnienie") -> Dict:
+    """Score a predicted justification against gold justification in case.
+
+    Heuristic: for each gold sentence, consider it matched if any predicted sentence
+    shares at least one non-stopword token. Score 1-5 = round(5 * matched_fraction) with minimum 1.
+    Returns dict: {score, matched, gold_total, details}.
+    """
+    gold = case.get("gold_uzasadnienie") or case.get("gold_uzasad") or case.get("gold_rationale")
+    if not gold:
+        return {"score": None, "matched": 0, "gold_total": 0, "details": []}
+
+    if isinstance(gold, str):
+        gold_list = [g.strip() for g in re.split(r"\n+", gold) if g.strip()]
+    else:
+        gold_list = list(gold)
+
+    pred = None
+    if parsed is None:
+        pred = []
+    else:
+        pred = parsed.get(key_pred) if isinstance(parsed, dict) else None
+        if pred is None:
+            # try alternative keys
+            for alt in ["uzasadnienie", "Uzasadnienie", "uzasadnienie_poprawione", "Uzasadnienie_sadowe"]:
+                pred = parsed.get(alt) if isinstance(parsed, dict) else None
+                if pred is not None:
+                    break
+    if isinstance(pred, str):
+        pred_list = [p.strip() for p in re.split(r"\n+", pred) if p.strip()]
+    else:
+        pred_list = list(pred or [])
+
+    details = []
+    matched = 0
+    for g in gold_list:
+        gw = set(_normalize_text(g))
+        found = False
+        matched_pred = None
+        for p in pred_list:
+            pw = set(_normalize_text(p))
+            if not gw:
+                continue
+            if gw & pw:
+                found = True
+                matched_pred = p
+                break
+        details.append({"gold": g, "matched": found, "matched_pred": matched_pred})
+        if found:
+            matched += 1
+
+    gold_total = len(gold_list)
+    matched_frac = (matched / gold_total) if gold_total else 0.0
+    score = max(1, round(5 * matched_frac)) if gold_total else None
+    return {"score": score, "matched": matched, "gold_total": gold_total, "details": details}

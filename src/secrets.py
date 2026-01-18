@@ -21,4 +21,7 @@ GEMINI_API_URL = os.getenv("GEMINI_API_URL")
 
 # https://aistudio.google.com/app/usage?timeRange=last-28-days&tab=rate-limit&project=gen-lang-client-0841350474
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemma-3-12b")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash")
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4")

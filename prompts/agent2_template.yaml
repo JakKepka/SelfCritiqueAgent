@@ -58,6 +58,7 @@ prompt: |
   Odpowiedź Agenta 1:
   {agent1_response}
 
+  Zwracaj tylko paremie w postaci PXX bez zadnego opisu.
   Lista paremii:
   {paremie}
 

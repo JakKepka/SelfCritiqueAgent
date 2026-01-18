@@ -66,6 +66,7 @@ prompt: |
     WAŻNE: Nie odpowiadaj "Zrozumiałem" ani nie proś o dodatkowe informacje. Od razu wygeneruj odpowiedź w żądanym formacie.
 
     Przykład oczekiwanego JSON (wyjście musi być poprawnym JSON lub dokładnie w formacie opisanym wyżej):
+    Zwracaj tylko paremie w postaci PXX bez zadnego opisu.
     {
       "Decyzja": "zasadne",
       "Uzasadnienie": ["punkt 1...", "punkt 2..."],

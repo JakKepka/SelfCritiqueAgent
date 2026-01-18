@@ -16,19 +16,21 @@ import logging
 
 from google import genai
 from utils import load_jsonl as utils_load_jsonl, format_paremie_text as utils_format_paremie_text, retrieve_top_k as utils_retrieve_top_k
-from llm import call_gemini_genai as llm_call_gemini_genai
-from parsers import parse_agent1_output as parsers_parse_agent1_output, parse_agent2_output as parsers_parse_agent2_output, compare_agent1_with_gold as parsers_compare_agent1_with_gold, compare_agent2_with_gold as parsers_compare_agent2_with_gold
+from llm import call_llm
+from parsers import parse_agent1_output as parsers_parse_agent1_output, parse_agent2_output as parsers_parse_agent2_output, compare_agent1_with_gold as parsers_compare_agent1_with_gold, compare_agent2_with_gold as parsers_compare_agent2_with_gold, score_justification_against_gold as parsers_score_justification
 from storage import save_case_results as storage_save_case_results
 
 
 try:
     import requests
     import yaml
+    import openai
     
 except Exception:
     requests = None
     yaml = None
     genai = None
+    openai = None
 
 # configure logging
 logging.basicConfig(level=os.environ.get("SCAFFOLD_LOG_LEVEL", "INFO"))
@@ -51,6 +53,11 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 PAREMIE_FILE = DATA_DIR / "paremie.jsonl"
 CASES_FILE = DATA_DIR / "cases.jsonl"
+
+# feature flag: whether to check justification against gold
+CHECK_JUSTIFICATION = True
+# LLM provider flag: 'gemini' or 'openai'
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "gemini")
 
 
 def load_jsonl(path: Path) -> List[Dict]:
@@ -136,6 +143,9 @@ def call_gemini_genai(prompt_text: str) -> Optional[str]:
         return None
 
 
+
+
+
 def _extract_json_substring(text: str) -> Optional[str]:
     return None
 
@@ -183,6 +193,17 @@ def save_case_results(case_id: str, data: Dict):
         meta.setdefault("saved_at", datetime.utcnow().isoformat() + "Z")
         with open(case_dir / "metrics_agent1.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
+        # if justification scores present, save separately for easy aggregation
+        just = meta.get("justification")
+        if just is not None:
+            try:
+                jd = just.copy() if isinstance(just, dict) else just
+            except Exception:
+                jd = just
+            if isinstance(jd, dict):
+                jd.setdefault("saved_at", datetime.utcnow().isoformat() + "Z")
+            with open(case_dir / "metrics_decisions.json", "w", encoding="utf-8") as f:
+                json.dump(jd, f, ensure_ascii=False, indent=2)
     # save agent2 post-correction metrics if present
     if "metrics_agent2" in data:
         try:
@@ -213,7 +234,7 @@ def run_case_llm(case_id: str):
     prompt1 = tpl1.get("prompt", "").replace("{case_facts}", case.get("facts", "")).replace("{paremie}", paremie_text)
     logger.info("= Sprawa: %s - %s (LLM mode)", case['id'], case.get('title'))
 
-    a1_raw = call_gemini_genai(prompt1)
+    a1_raw = call_llm(prompt1)
     if a1_raw is None:
         logger.error("Nie udało się uzyskać odpowiedzi od Gemini. Kończę.")
         return
@@ -246,7 +267,7 @@ def run_case_llm(case_id: str):
             "Zwróć jedynie poprawny JSON, np. {\"Decyzja\": \"zasadne\", \"Uzasadnienie\": [...], \"Paremie użyte\": [\"P01\"], \"Założenia\": [...] }. "
             "Sprawa: \n" + forced['case_facts'] + "\nLista paremii:\n" + forced['paremie']
         )
-        a1_raw2 = call_gemini_genai(forced_prompt)
+        a1_raw2 = call_llm(forced_prompt)
         if a1_raw2:
             logger.info('-- Agent 1 (LLM) forced retry raw output --')
             logger.info('%s', a1_raw2)
@@ -259,7 +280,7 @@ def run_case_llm(case_id: str):
 
     # Agent 2: build prompt including Agent1 response
     prompt2 = tpl2.get("prompt", "").replace("{case_facts}", case.get("facts", "")).replace("{agent1_response}", a1_raw or "").replace("{paremie}", paremie_text)
-    a2_raw = call_gemini_genai(prompt2)
+    a2_raw = call_llm(prompt2)
     if a2_raw is None:
         logger.error("Nie udało się uzyskać odpowiedzi krytyka od Gemini. Kończę.")
         return
@@ -282,7 +303,7 @@ def run_case_llm(case_id: str):
             "Zwróć jedynie poprawny JSON, np. {\"Rubryka\": {...}, \"Lista błędów\": [...], \"Proponowana poprawka\": \"...\"}. "
             "Fakty: \n" + case.get('facts', '') + "\nOdpowiedź Agenta1:\n" + (a1_raw or '') + "\nLista paremii:\n" + paremie_text
         )
-        a2_raw2 = call_gemini_genai(forced2)
+        a2_raw2 = call_llm(forced2)
         if a2_raw2:
             logger.info('-- Agent 2 (LLM) forced retry raw output --')
             logger.info('%s', a2_raw2)
@@ -294,6 +315,61 @@ def run_case_llm(case_id: str):
     # compute Agent2-effect metrics (inferred corrections)
     metrics_agent2 = parsers_compare_agent2_with_gold(case, parsed_a1, parsed_a2)
 
+    # optional: score justifications vs gold
+    justification_metrics = {}
+    if CHECK_JUSTIFICATION:
+        just_a1 = parsers_score_justification(case, parsed_a1, key_pred='uzasadnienie')
+        # prefer Uzasadnienie_sadowe or uzasadnienie_poprawione for agent2
+        just_a2 = parsers_score_justification(case, parsed_a2, key_pred='Uzasadnienie_sadowe')
+        if just_a2.get('score') is None:
+            just_a2 = parsers_score_justification(case, parsed_a2, key_pred='uzasadnienie_poprawione')
+        justification_metrics = {"agent1": just_a1, "agent2": just_a2}
+        # attach to metrics
+        metrics["justification"] = justification_metrics
+        # If LLM available, optionally call a dedicated judge prompt to get LLM scores
+        try:
+            judge_tpl_path = Path(__file__).resolve().parents[1] / "prompts" / "agent_judge_template.yaml"
+            if judge_tpl_path.exists():
+                tpl_j = load_yaml_template(judge_tpl_path)
+                gold_text = "\n".join(case.get("gold_uzasadnienie", [])) if case.get("gold_uzasadnienie") else case.get("gold_uzasadnienie", "")
+                a1_text = parsed_a1.get("uzasadnienie") if isinstance(parsed_a1.get("uzasadnienie"), str) else "\n".join(parsed_a1.get("uzasadnienie", []))
+                a2_text = parsed_a2.get("Uzasadnienie_sadowe") if parsed_a2.get("Uzasadnienie_sadowe") else parsed_a2.get("uzasadnienie_poprawione") if parsed_a2.get("uzasadnienie_poprawione") else ("\n".join(parsed_a2.get("uzasadnienie", [])) if parsed_a2.get("uzasadnienie") else "")
+                judge_prompt = tpl_j.get("prompt", "").replace("{gold_uzasadnienie}", gold_text).replace("{agent1_uzasadnienie}", a1_text).replace("{agent2_uzasadnienie}", a2_text)
+                judge_raw = call_llm(judge_prompt)
+                logger.info("-- LLM Judge raw output --")
+                logger.info("%s", judge_raw)
+                if judge_raw:
+                    # try JSON parse
+                    try:
+                        jr = json.loads(judge_raw)
+                    except Exception:
+                        # try to extract simple JSON substring
+                        m = re.search(r"\{.*\}", judge_raw, re.S)
+                        if m:
+                            try:
+                                jr = json.loads(m.group(0))
+                            except Exception:
+                                jr = {"raw": judge_raw}
+                        else:
+                            jr = {"raw": judge_raw}
+                    # normalize expected fields
+                    agent1_score = jr.get("agent1_score") if isinstance(jr.get("agent1_score"), int) else None
+                    agent2_score = jr.get("agent2_score") if isinstance(jr.get("agent2_score"), int) else None
+                    agent1_comment = jr.get("agent1_comment") or jr.get("agent1_commentary") or ""
+                    agent2_comment = jr.get("agent2_comment") or jr.get("agent2_commentary") or ""
+                    metrics.setdefault("justification", {})
+                    metrics["justification"]["llm_judge"] = {
+                        "agent1_score": agent1_score,
+                        "agent2_score": agent2_score,
+                        "agent1_comment": agent1_comment,
+                        "agent2_comment": agent2_comment,
+                        "raw": judge_raw
+                    }
+        except Exception as e:
+            # non-fatal: skip judge if anything goes wrong
+            logger.error("Błąd wywołania LLM Judge: %s", e)
+            pass
+
     # finalize and save per-case results
     a1_raw_final = a1_raw2 if ('a1_raw2' in locals() and a1_raw2) else a1_raw
     a2_raw_final = a2_raw2 if ('a2_raw2' in locals() and a2_raw2) else a2_raw
@@ -303,55 +379,6 @@ def run_case_llm(case_id: str):
         parsed_a2_enriched.setdefault("recommended_paremie", metrics_agent2.get("pred_after", []))
         # ensure Agent2 file contains a decision field (agreeing or overriding Agent1)
         parsed_a2_enriched.setdefault("decision", parsed_a1.get("decision"))
-
-        # generate court-style corrected justification: prefer a dedicated LLM rewrite when available
-        uzpop = None
-        try:
-            # Use rewrite prompt from template if available, else build inline
-            tpl_rewrite = tpl2.get("rewrite_prompt") if isinstance(tpl2, dict) else None
-            if tpl_rewrite:
-                rewrite_prompt = tpl_rewrite.replace("{case_facts}", case.get('facts', '')).replace("{paremie}", format_paremie_text(paremie)).replace("{agent2_parsed}", json.dumps(parsed_a2, ensure_ascii=False, indent=2)).replace("{pred_after}", ", ".join(metrics_agent2.get('pred_after', [])))
-            else:
-                # Build a concise prompt for rewriting into court-style justification
-                rewrite_prompt = (
-                    "Na podstawie faktów sprawy oraz oceny krytycznej przygotuj zwięzłe uzasadnienie orzeczenia\n"
-                    "w stylu sądowym. Nie odnosić się do Agenta1 ani do uwag krytyka wprost, tylko zaprezentować finalne "
-                    "uzasadnienie merytoryczne.\n\nFakty:\n" + case.get('facts', '') + "\n\n"
-                    "Lista paremii (id: opis):\n" + format_paremie_text(paremie) + "\n\n"
-                    "Ocena krytyczna (zestaw danych):\n" + json.dumps(parsed_a2, ensure_ascii=False, indent=2) + "\n\n"
-                    "Użyj w uzasadnieniu przede wszystkim reguł: " + ", ".join(metrics_agent2.get('pred_after', [])) + ".\n"
-                    "Wygeneruj odpowiedź jako listę punktów (krótkie akapity) i zwróć jedynie poprawny JSON: [\"string1\", ...]."
-                )
-            llm_resp = call_gemini_genai(rewrite_prompt)
-            if llm_resp:
-                # try parse JSON array
-                try:
-                    candidate = llm_resp.strip()
-                    if candidate.startswith('['):
-                        uzpop = json.loads(candidate)
-                    else:
-                        # try to extract lines starting with numbers or bullets
-                        lines = [re.sub(r"^\s*\d+\.|^[-\*]\s*", "", l).strip() for l in llm_resp.splitlines() if l.strip()]
-                        uzpop = [l for l in lines if l]
-                except Exception:
-                    # fallback: split by blank lines
-                    parts = [p.strip() for p in llm_resp.split('\n\n') if p.strip()]
-                    uzpop = parts if parts else [llm_resp.strip()]
-        except Exception:
-            uzpop = None
-
-        if uzpop:
-            parsed_a2_enriched.setdefault("uzasadnienie_poprawione", uzpop)
-        else:
-            # fallback: use suggested_fix or agent1 uzasadnienie
-            try:
-                sf = parsed_a2.get("suggested_fix") if isinstance(parsed_a2, dict) else None
-                if sf:
-                    parsed_a2_enriched.setdefault("uzasadnienie_poprawione", [sf] if not isinstance(sf, list) else sf)
-                else:
-                    parsed_a2_enriched.setdefault("uzasadnienie_poprawione", parsed_a1.get("uzasadnienie", []))
-            except Exception:
-                parsed_a2_enriched.setdefault("uzasadnienie_poprawione", parsed_a1.get("uzasadnienie", []))
     except Exception:
         parsed_a2_enriched = parsed_a2
 
@@ -459,19 +486,19 @@ def run_case(case_id: str):
     try:
         metrics = parsers_compare_agent1_with_gold(case, {"decision": a1.get("decision"), "used_paremie": a1.get("used_paremie")})
         metrics_agent2 = parsers_compare_agent2_with_gold(case, {"decision": a1.get("decision"), "used_paremie": a1.get("used_paremie")}, a2)
+        justification_metrics = {}
+        if CHECK_JUSTIFICATION:
+            just_a1 = parsers_score_justification(case, {"uzasadnienie": a1.get("uzasadnienie")}, key_pred='uzasadnienie')
+            # for naive agent2, use suggested_fix or uzasadnienie_poprawione if present
+            just_a2 = parsers_score_justification(case, a2, key_pred='Uzasadnienie_sadowe')
+            if just_a2.get('score') is None:
+                just_a2 = parsers_score_justification(case, a2, key_pred='uzasadnienie_poprawione')
+            justification_metrics = {"agent1": just_a1, "agent2": just_a2}
+            metrics["justification"] = justification_metrics
         try:
             a2_enriched = dict(a2) if isinstance(a2, dict) else {"raw": a2}
             a2_enriched.setdefault("recommended_paremie", metrics_agent2.get("pred_after", []))
             a2_enriched.setdefault("decision", a1.get("decision"))
-            # corrected justification for naive run
-            try:
-                sf = a2.get("suggested_fix") if isinstance(a2, dict) else None
-                if sf:
-                    a2_enriched.setdefault("uzasadnienie_poprawione", [sf] if not isinstance(sf, list) else sf)
-                else:
-                    a2_enriched.setdefault("uzasadnienie_poprawione", a1.get("uzasadnienie", []))
-            except Exception:
-                a2_enriched.setdefault("uzasadnienie_poprawione", a1.get("uzasadnienie", []))
         except Exception:
             a2_enriched = a2
 
@@ -500,6 +527,8 @@ def main():
     parser.add_argument("command", choices=["list", "run"], help="list/run")
     parser.add_argument("case_id", nargs="?", help="ID sprawy, np. C01")
     parser.add_argument("--use-gemini", action="store_true", help="Użyć Gemini API (wymaga ustawionego GEMINI_API_KEY i GEMINI_API_URL)")
+    parser.add_argument("--use-openai", action="store_true", help="Użyć OpenAI GPT API (wymaga ustawionego OPENAI_API_KEY)")
+    parser.add_argument("--check-justification", action="store_true", help="Włączyć sprawdzanie uzasadnień Agenta1/2 względem gold_uzasadnienie (skala 1-5)")
     args = parser.parse_args()
     
     if args.command == "list":
@@ -509,10 +538,29 @@ def main():
             logger.error("Podaj case_id, np.: run C01")
             return
         # choose pipeline: naive vs LLM-based
-        if args.use_gemini:
+        # set justification check flag
+        global CHECK_JUSTIFICATION
+        CHECK_JUSTIFICATION = True #bool(args.check_justification)
+
+        # mutually exclusive: prefer explicit selection
+        if args.use_gemini and args.use_openai:
+            logger.error("Wybierz tylko jedną z opcji --use-gemini lub --use-openai")
+            return
+        global LLM_PROVIDER
+        if args.use_openai:
+            if openai is None:
+                logger.error("Brakuje pakietu 'openai'. Zainstaluj go: pip install openai")
+                return
+            LLM_PROVIDER = "openai"
+            os.environ["LLM_PROVIDER"] = "openai"
+        elif args.use_gemini:
             if requests is None or yaml is None:
                 logger.error("Brakuje zależności 'requests' lub 'PyYAML'. Zainstaluj je: pip install -r requirements.txt")
                 return
+            LLM_PROVIDER = "gemini"
+            os.environ["LLM_PROVIDER"] = "gemini"
+
+        if args.use_gemini or args.use_openai:
             run_case_llm(args.case_id)
         else:
             run_case(args.case_id)
