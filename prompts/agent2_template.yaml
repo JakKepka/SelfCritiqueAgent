@@ -78,15 +78,10 @@ prompt: |
     "suggested_fix":"Dodać P09; doprecyzować możliwość odstąpienia/obniżenia ceny gdy naprawa nie usuwa wady.",
     "recommended_paremie":["P01","P08","P09"],
     "decision":"zasadne",
-    "uzasadnienie_poprawione":[
-    "1. Zgodnie z P01 sprzedawca odpowiada za wadę fizyczną rzeczy sprzedanej.",
-    "2. Wada ujawniła się po 2 tygodniach; naprawa została zaproponowana, lecz brak gwarancji usunięcia wady — P08 uprawnia do żądania obniżenia ceny lub odstąpienia od umowy.",
-    "3. P09 reguluje procedurę reklamacyjną i potwierdza możliwość odstąpienia/obniżenia ceny przy nieefektywnej naprawie — zatem roszczenie konsumenta jest zasadne."
-    ],
     "Uzasadnienie_sadowe":[
-    "1) Sprzedawca był odpowiedzialny za wydanie rzeczy wolnej od wad (P01).",
-    "2) Wada ujawniła się po 2 tygodniach; naprawa nie gwarantuje usunięcia wady — zatem konsument ma alternatywne roszczenia (P08).",
-    "3) Procedura reklamacyjna i terminy (P09) potwierdzają możliwość odstąpienia od umowy lub żądania obniżenia ceny."
+    "1. Sprzedawca był odpowiedzialny za wydanie rzeczy wolnej od wad (P01).",
+    "2. Wada ujawniła się po 2 tygodniach; naprawa nie gwarantuje usunięcia wady — zatem konsument ma alternatywne roszczenia (P08).",
+    "3. Procedura reklamacyjna i terminy (P09) potwierdzają możliwość odstąpienia od umowy lub żądania obniżenia ceny."
     ]
   }
 placeholders:

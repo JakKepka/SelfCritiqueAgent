@@ -18,10 +18,9 @@ prompt: |
   Etykiety (krótkie opisy):
   - zasadne: na podstawie dostępnych faktów reguła ma zastosowanie i prowadzi do rozstrzygnięcia.
   - niezasadne: na podstawie dostępnych faktów reguła nie ma zastosowania.
-  - niejednoznaczne: brak wystarczających przesłanek lub sprzeczność dowodów — nie można jednoznacznie rozstrzygnąć.
 
   Format odpowiedzi (wyłącznie):
-  Decyzja: <zasadne|niezasadne|niejednoznaczne>
+  Decyzja: <zasadne|niezasadne>
 
   Uzasadnienie:
   1. ...
