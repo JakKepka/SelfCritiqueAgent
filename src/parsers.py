@@ -105,6 +105,10 @@ def parse_agent2_output(text: str) -> Dict:
             out["rubric"] = data.get("Rubryka") or data.get("rubric") or {}
             out["errors"] = data.get("Lista błędów") or data.get("errors") or []
             out["suggested_fix"] = data.get("Proponowana poprawka") or data.get("suggested_fix")
+            # Extra fields for full correction
+            out["recommended_paremie"] = data.get("recommended_paremie") or data.get("recommended") or data.get("proponowane_paremie")
+            out["decision"] = data.get("decision") or data.get("decyzja") or data.get("Decyzja")
+            out["Uzasadnienie_sadowe"] = data.get("Uzasadnienie_sadowe") or data.get("uzasadnienie_sadowe") or data.get("Uzasadnienie_sądowe") or data.get("justification")
             return out
         except Exception:
             pass
@@ -131,6 +135,12 @@ def parse_agent2_output(text: str) -> Dict:
         m = re.match(r"[-\s]*pomini[eę]cie[:\s]+(.+)", line, flags=re.I)
         if m:
             out["errors"].append({"pominięcie": m.group(1).strip()})
+        
+        # Fallback regex for decision if not in JSON
+        m = re.match(r"Decyzja:\s*(zasadne|niezasadne|nie_dazy)", line, flags=re.I)
+        if m and not out.get("decision"):
+            out["decision"] = m.group(1).lower()
+            
     return out
 
 
@@ -172,9 +182,14 @@ def _apply_agent2_corrections_to_pred(predicted: set, agent2_parsed: Dict) -> se
                 if not found:
                     continue
                 key = k.lower()
+                msg_lower = str(msg).lower()
                 if "pomi" in key:
                     corrected.update([f.upper() for f in found])
-                elif "dob" in key or "nadmi" in str(msg).lower():
+                elif "dob" in key:
+                    # Only remove if msg suggests checking for excess/error
+                    if re.search(r"nadmiar|błędn|niepotrzebn|niezasadn|usun|brak\s+zastosowania", msg_lower):
+                        corrected.difference_update([f.upper() for f in found])
+                elif "nadmi" in msg_lower:
                     corrected.difference_update([f.upper() for f in found])
         else:
             msg = str(e)
@@ -204,6 +219,13 @@ def compare_agent2_with_gold(case: Dict, agent1_parsed: Dict, agent2_parsed: Dic
         "added": sorted(list(corrected - pred)),
         "removed": sorted(list(pred - corrected)),
     }
+    
+    # Decision evaluation
+    gold_decision = case.get("label")
+    # Agent 2 may have its own decision, otherwise assume it confirms Agent 1's or stick to A1
+    pred_decision = agent2_parsed.get("decision") or agent1_parsed.get("decision")
+    decision_match = (pred_decision == gold_decision)
+
     return {
         "pred_before": sorted(list(pred)),
         "pred_after": sorted(list(corrected)),
@@ -212,6 +234,9 @@ def compare_agent2_with_gold(case: Dict, agent1_parsed: Dict, agent2_parsed: Dic
         "tp": sorted(list(tp)),
         "gold": sorted(list(gold)),
         "modifications": modifications,
+        "decision_match": decision_match,
+        "pred_decision": pred_decision,
+        "gold_decision": gold_decision,
     }
 
 

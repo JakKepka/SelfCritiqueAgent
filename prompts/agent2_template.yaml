@@ -70,6 +70,8 @@ prompt: |
 
   Wygeneruj teraz ocenę (tylko JSON).
 
+  Pamiętaj, ze recommended_paremie to lista paremii, które twoim zdaniem powinny byc użyte w uzasadnieniu sadowym. Ktore uzywasz w Uzasadnienie_sadowe! Pamiętaj ze decyzje agenta1 mogą byc bledne.
+  
   Kiedy zwracasz decision, nie musi być takie jak dla agenta pierwszego. Czasami kiedy uwazasz ze dezycja jest bledna dajesz inna decyzje!!!
   Przykład wyniku:
   {

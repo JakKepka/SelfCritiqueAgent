@@ -97,6 +97,10 @@ def compute_f1_multiclass(y_true, y_pred, labels=None):
     if not y_true or not y_pred or len(y_true) != len(y_pred):
         return 0.0
     
+    # Ensure all labels are strings to avoid sorting errors with None
+    y_true = [str(y) if y is not None else "None" for y in y_true]
+    y_pred = [str(y) if y is not None else "None" for y in y_pred]
+    
     if labels is None:
         labels = sorted(set(y_true + y_pred))
     

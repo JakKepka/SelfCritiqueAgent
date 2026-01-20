@@ -63,6 +63,7 @@ def call_openai_gpt(prompt_text: str) -> Optional[str]:
     openai.api_key = api_key
     from secrets import OPENAI_MODEL
     model_name = OPENAI_MODEL
+    logger.info("Calling OpenAI model: %s", model_name)
     try:
         resp = openai.ChatCompletion.create(model=model_name, messages=[{"role": "user", "content": prompt_text}])
         if resp and resp.get("choices"):

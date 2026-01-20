@@ -37,6 +37,7 @@ prompt: |
 
   WAŻNE: Nie odpowiadaj "Zrozumiałem" ani nie proś o dodatkowe informacje. Od razu wygeneruj odpowiedź w żądanym formacie.
 
+
   Przykład oczekiwanego JSON (zwracaj tylko id paremii w postaci PXX bez opisu):
   {
     "Decyzja": "zasadne",
